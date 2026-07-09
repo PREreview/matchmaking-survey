@@ -110,7 +110,14 @@ const adminRouter = HttpRouter.empty.pipe(
       const csvText = yield* req.text
       const result = yield* Admin.importCsv(csvText)
       return yield* HttpServerResponse.json(result)
-    }),
+    }).pipe(
+      Effect.catchTag("DuplicateCsvRowsError", (e) =>
+        HttpServerResponse.json(
+          { error: "duplicate_rows", duplicates: e.duplicates },
+          { status: 400 },
+        ),
+      ),
+    ),
   ),
   HttpRouter.get(
     "/export.csv",
@@ -120,6 +127,7 @@ const adminRouter = HttpRouter.empty.pipe(
         "batch_uploaded_at",
         "orcid",
         "token",
+        "doi",
         "title",
         "abstract",
         "rating",
@@ -130,6 +138,7 @@ const adminRouter = HttpRouter.empty.pipe(
           r.batch_uploaded_at,
           r.orcid,
           r.token,
+          r.doi,
           r.title,
           r.abstract,
           String(r.rating),

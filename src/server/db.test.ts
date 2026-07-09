@@ -107,11 +107,12 @@ describe("papers", () => {
           Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-p"),
         ),
         Effect.andThen((s) =>
-          Db.insertPaper(s.id, "A Great Paper", "Abstract here.", 0),
+          Db.insertPaper(s.id, "10.1/great", "A Great Paper", "Abstract here.", 0),
         ),
       ),
     )
     expect(paper.title).toBe("A Great Paper")
+    expect(paper.doi).toBe("10.1/great")
     expect(paper.display_order).toBe(0)
   })
 
@@ -123,14 +124,78 @@ describe("papers", () => {
         ),
         Effect.andThen((s) =>
           Effect.all([
-            Db.insertPaper(s.id, "Paper B", "Abstract B.", 1),
-            Db.insertPaper(s.id, "Paper A", "Abstract A.", 0),
+            Db.insertPaper(s.id, "10.1/b", "Paper B", "Abstract B.", 1),
+            Db.insertPaper(s.id, "10.1/a", "Paper A", "Abstract A.", 0),
           ]).pipe(Effect.andThen(() => Db.listPapersForScientist(s.id))),
         ),
       ),
     )
     expect(papers[0].title).toBe("Paper A")
     expect(papers[1].title).toBe("Paper B")
+  })
+
+  it("does not include doi in the survey-facing paper shape", async () => {
+    const papers = await run(
+      Db.createBatch.pipe(
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-nodoi"),
+        ),
+        Effect.andThen((s) =>
+          Db.insertPaper(s.id, "10.1/secret", "Paper", "Abstract.", 0).pipe(
+            Effect.andThen(() => Db.listPapersForScientist(s.id)),
+          ),
+        ),
+      ),
+    )
+    expect(papers[0]).not.toHaveProperty("doi")
+    expect(papers[0]).not.toHaveProperty("scientist_id")
+  })
+
+  it("allows the same doi to be shown to two different scientists", async () => {
+    const [papersA, papersB] = await run(
+      Db.createBatch.pipe(
+        Effect.andThen((b) =>
+          Effect.all([
+            Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-share-a"),
+            Db.insertScientist(b.id, "0000-0002-1234-5678", "tok-share-b"),
+          ]),
+        ),
+        Effect.andThen(([a, b]) =>
+          Effect.all([
+            Db.insertPaper(a.id, "10.1/shared", "Shared Paper", "Abstract.", 0),
+            Db.insertPaper(b.id, "10.1/shared", "Shared Paper", "Abstract.", 0),
+          ]).pipe(
+            Effect.andThen(() =>
+              Effect.all([
+                Db.listPapersForScientist(a.id),
+                Db.listPapersForScientist(b.id),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    )
+    expect(papersA).toHaveLength(1)
+    expect(papersB).toHaveLength(1)
+  })
+
+  it("rejects inserting the same doi twice for the same scientist", async () => {
+    await expect(
+      run(
+        Db.createBatch.pipe(
+          Effect.andThen((b) =>
+            Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-dupe"),
+          ),
+          Effect.andThen((s) =>
+            Db.insertPaper(s.id, "10.1/dupe", "Paper", "Abstract.", 0).pipe(
+              Effect.andThen(() =>
+                Db.insertPaper(s.id, "10.1/dupe", "Paper Again", "Abstract.", 1),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ).rejects.toBeTruthy()
   })
 })
 
@@ -143,7 +208,7 @@ describe("responses", () => {
         Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-r"),
       ),
       Effect.andThen((s) =>
-        Db.insertPaper(s.id, "Paper", "Abstract.", 0).pipe(
+        Db.insertPaper(s.id, "10.1/response-paper", "Paper", "Abstract.", 0).pipe(
           Effect.andThen((p) => f({ scientistId: s.id, paperId: p.id })),
         ),
       ),
@@ -185,6 +250,7 @@ describe("responses", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].orcid).toBe("0000-0001-2345-6789")
     expect(rows[0].title).toBe("Paper")
+    expect(rows[0].doi).toBe("10.1/response-paper")
     expect(rows[0].rating).toBe(3)
     expect(typeof rows[0].batch_uploaded_at).toBe("string")
   })

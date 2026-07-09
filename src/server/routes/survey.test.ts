@@ -21,8 +21,8 @@ const seed = Db.createBatch.pipe(
   ),
   Effect.andThen((s) =>
     Effect.all([
-      Db.insertPaper(s.id, "Paper One", "Abstract one.", 0),
-      Db.insertPaper(s.id, "Paper Two", "Abstract two.", 1),
+      Db.insertPaper(s.id, "10.1/one", "Paper One", "Abstract one.", 0),
+      Db.insertPaper(s.id, "10.1/two", "Paper Two", "Abstract two.", 1),
     ]).pipe(Effect.map((papers) => ({ scientist: s, papers }))),
   ),
 )
@@ -41,6 +41,7 @@ describe("getSurveyState", () => {
     expect(result!.scientist.orcid).toBe("0000-0002-1234-5678")
     expect(result!.papers).toHaveLength(2)
     expect(result!.responses).toHaveLength(0)
+    expect(result!.papers[0]).not.toHaveProperty("doi")
   })
 
   it("includes saved responses on return visit", async () => {

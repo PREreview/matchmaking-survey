@@ -15,10 +15,10 @@ const run = <A>(effect: Effect.Effect<A, unknown, Db.DbClient>) =>
     Db.migrate.pipe(Effect.andThen(effect), Effect.provide(layer)),
   )
 
-const csvText = `orcid,title,abstract
-0000-0001-1111-1111,Paper Alpha,Abstract for alpha.
-0000-0001-1111-1111,Paper Beta,Abstract for beta.
-0000-0002-2222-2222,Paper Gamma,Abstract for gamma.`
+const csvText = `orcid,title,abstract,doi
+0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha
+0000-0001-1111-1111,Paper Beta,Abstract for beta.,10.1/beta
+0000-0002-2222-2222,Paper Gamma,Abstract for gamma.,10.1/gamma`
 
 describe("importCsv", () => {
   it("creates a batch and returns token entries per scientist", async () => {
@@ -76,6 +76,24 @@ describe("importCsv", () => {
     expect(second.batchId).toBeGreaterThan(first.batchId)
     expect(first.entries[0].token).not.toBe(second.entries[0].token)
   })
+
+  it("allows the same doi under two different orcids", async () => {
+    const sharedCsv = `orcid,title,abstract,doi
+0000-0001-1111-1111,Shared Paper,Shared abstract.,10.1/shared
+0000-0002-2222-2222,Shared Paper,Shared abstract.,10.1/shared`
+    const result = await run(Admin.importCsv(sharedCsv))
+    expect(result.entries).toHaveLength(2)
+    expect(result.entries.every((e) => e.paperCount === 1)).toBe(true)
+  })
+
+  it("rejects a csv with a duplicate orcid+doi row and writes nothing", async () => {
+    const duplicateCsv = `orcid,title,abstract,doi
+0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha
+0000-0001-1111-1111,Paper Alpha Reprint,Same paper again.,10.1/alpha`
+    await expect(run(Admin.importCsv(duplicateCsv))).rejects.toBeTruthy()
+    const batches = await run(Db.listBatches)
+    expect(batches).toHaveLength(0)
+  })
 })
 
 describe("getExportRows", () => {
@@ -104,5 +122,6 @@ describe("getExportRows", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].orcid).toBe("0000-0002-2222-2222")
     expect(rows[0].rating).toBe(5)
+    expect(rows[0].doi).toBe("10.1/gamma")
   })
 })

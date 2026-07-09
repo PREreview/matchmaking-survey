@@ -15,6 +15,13 @@ export type Scientist = {
 export type Paper = {
   id: number
   scientist_id: number
+  doi: string
+  title: string
+  abstract: string
+  display_order: number
+}
+export type SurveyPaper = {
+  id: number
   title: string
   abstract: string
   display_order: number
@@ -30,6 +37,7 @@ export type ExportRow = {
   batch_uploaded_at: string
   orcid: string
   token: string
+  doi: string
   title: string
   abstract: string
   rating: number
@@ -59,9 +67,11 @@ export const migrate = Effect.gen(function* () {
     CREATE TABLE IF NOT EXISTS papers (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       scientist_id  INTEGER NOT NULL REFERENCES scientists(id),
+      doi           TEXT    NOT NULL,
       title         TEXT    NOT NULL,
       abstract      TEXT    NOT NULL,
-      display_order INTEGER NOT NULL DEFAULT 0
+      display_order INTEGER NOT NULL DEFAULT 0,
+      UNIQUE (scientist_id, doi)
     )
   `
   yield* sql`
@@ -131,6 +141,7 @@ export const listScientistsForBatch = (batchId: number) =>
 
 export const insertPaper = (
   scientistId: number,
+  doi: string,
   title: string,
   abstract: string,
   displayOrder: number,
@@ -138,8 +149,8 @@ export const insertPaper = (
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const rows = yield* sql<Paper>`
-      INSERT INTO papers (scientist_id, title, abstract, display_order)
-      VALUES (${scientistId}, ${title}, ${abstract}, ${displayOrder})
+      INSERT INTO papers (scientist_id, doi, title, abstract, display_order)
+      VALUES (${scientistId}, ${doi}, ${title}, ${abstract}, ${displayOrder})
       RETURNING *
     `
     return rows[0]
@@ -148,8 +159,9 @@ export const insertPaper = (
 export const listPapersForScientist = (scientistId: number) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    return yield* sql<Paper>`
-      SELECT * FROM papers WHERE scientist_id = ${scientistId} ORDER BY display_order
+    return yield* sql<SurveyPaper>`
+      SELECT id, title, abstract, display_order
+      FROM papers WHERE scientist_id = ${scientistId} ORDER BY display_order
     `
   })
 
@@ -184,6 +196,7 @@ export const exportResponses = Effect.gen(function* () {
       b.uploaded_at AS batch_uploaded_at,
       s.orcid,
       s.token,
+      p.doi,
       p.title,
       p.abstract,
       r.rating,
