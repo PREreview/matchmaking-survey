@@ -114,7 +114,7 @@ export default function AdminPage() {
       <div style={s.section}>
         <h2 style={s.h2}>Upload CSV</h2>
         <p style={{ margin: "0 0 0.75rem", color: "#6c757d", fontSize: "0.9rem" }}>
-          Expected columns: <code>orcid, title, abstract</code>
+          Expected columns: <code>orcid, title, abstract, doi</code>
         </p>
         <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" style={{ marginRight: "0.5rem" }} />
         <button style={s.btn} onClick={handleUpload} disabled={uploading}>
