@@ -1,3 +1,4 @@
+import "survey-core/survey-core.min.css"
 import { Model, Survey } from "survey-react-ui"
 import { useEffect, useRef, useState } from "react"
 import type { SurveyModel } from "survey-core"
@@ -95,7 +96,7 @@ export default function SurveyPage({ token }: { token: string }) {
     return (
       <div style={{ padding: "2rem", textAlign: "center" }}>
         <h2>Thank you!</h2>
-        <p>Your responses have already been submitted.</p>
+        <p>Your responses have been submitted.</p>
       </div>
     )
 
