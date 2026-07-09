@@ -19,3 +19,9 @@ check:
 	pnpm lint
 	pnpm typecheck
 	pnpm test
+
+.PHONY: end2end
+end2end:
+	pnpm build
+	pnpm exec playwright install --with-deps chromium
+	pnpm exec playwright test

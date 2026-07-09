@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "lint": "oxlint .",
     "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json",
+    "test:e2e": "playwright test",
     "start": "node dist/server/index.js"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "survey-react-ui": "^2.5.33"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

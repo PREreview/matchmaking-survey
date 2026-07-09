@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.db
 .env
+/test-results/
+/playwright-report/
+/blob-report/
