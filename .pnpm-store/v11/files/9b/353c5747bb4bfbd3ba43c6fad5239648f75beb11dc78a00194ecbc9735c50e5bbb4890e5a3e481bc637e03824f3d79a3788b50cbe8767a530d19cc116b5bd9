@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","names":["SqliteClient","SqliteMigrator"],"sources":["../../src/index.ts"],"sourcesContent":[null],"mappings":"AAAA;;;AAGA,OAAO,KAAKA,YAAY,MAAM,mBAAmB;AAEjD;;;AAGA,OAAO,KAAKC,cAAc,MAAM,qBAAqB","ignoreList":[]}

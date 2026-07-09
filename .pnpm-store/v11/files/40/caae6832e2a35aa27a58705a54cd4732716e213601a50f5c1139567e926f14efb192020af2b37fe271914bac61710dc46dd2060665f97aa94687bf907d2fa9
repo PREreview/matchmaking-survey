@@ -1,0 +1,64 @@
+{
+  "name": "@effect/sql-sqlite-node",
+  "version": "0.52.0",
+  "description": "A SQLite toolkit for Effect",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Effect-TS/effect.git",
+    "directory": "packages/sql-sqlite-node"
+  },
+  "sideEffects": [],
+  "homepage": "https://effect.website",
+  "dependencies": {
+    "better-sqlite3": "^12.6.2"
+  },
+  "peerDependencies": {
+    "@effect/experimental": "^0.60.0",
+    "@effect/platform": "^0.96.0",
+    "@effect/sql": "^0.51.0",
+    "effect": "^3.21.0"
+  },
+  "publishConfig": {
+    "provenance": true
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/dts/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/dts/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/cjs/index.js"
+    },
+    "./SqliteClient": {
+      "types": "./dist/dts/SqliteClient.d.ts",
+      "import": "./dist/esm/SqliteClient.js",
+      "default": "./dist/cjs/SqliteClient.js"
+    },
+    "./SqliteMigrator": {
+      "types": "./dist/dts/SqliteMigrator.d.ts",
+      "import": "./dist/esm/SqliteMigrator.js",
+      "default": "./dist/cjs/SqliteMigrator.js"
+    },
+    "./index": {
+      "types": "./dist/dts/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/cjs/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "SqliteClient": [
+        "./dist/dts/SqliteClient.d.ts"
+      ],
+      "SqliteMigrator": [
+        "./dist/dts/SqliteMigrator.d.ts"
+      ],
+      "index": [
+        "./dist/dts/index.d.ts"
+      ]
+    }
+  }
+}

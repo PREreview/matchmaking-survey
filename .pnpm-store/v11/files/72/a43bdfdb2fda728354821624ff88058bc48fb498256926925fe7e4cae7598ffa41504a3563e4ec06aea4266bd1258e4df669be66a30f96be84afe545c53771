@@ -1,0 +1,93 @@
+import { Base } from "./base";
+import { HorizontalAlignment, ILayoutElementModel, ISurveyLayoutElement, VerticalAlignment } from "./base-interfaces";
+import { SurveyModel } from "./survey";
+import { ITheme } from "./themes";
+export declare class CoverCell {
+    private cover;
+    private positionX;
+    private positionY;
+    static CLASSNAME: string;
+    private calcRow;
+    private calcColumn;
+    private calcAlignItems;
+    private calcAlignText;
+    private calcJustifyContent;
+    private calcGridRow;
+    constructor(cover: Cover, positionX: HorizontalAlignment, positionY: VerticalAlignment);
+    get survey(): SurveyModel;
+    get css(): string;
+    get style(): any;
+    get contentStyle(): any;
+    get showLogo(): boolean;
+    get showTitle(): boolean;
+    get showDescription(): boolean;
+    get isEmpty(): boolean;
+    get textAreaWidth(): string;
+    get width(): number;
+    get contentMaxWidth(): string;
+}
+export declare class Cover extends Base implements ILayoutElementModel {
+    private _survey;
+    private calcBackgroundSize;
+    private updateHeaderClasses;
+    private updateContentClasses;
+    private updateBackgroundImageClasses;
+    fromTheme(theme: ITheme): void;
+    private init;
+    constructor();
+    getType(): string;
+    cells: CoverCell[];
+    height: number;
+    mobileHeight: number;
+    inheritWidthFrom: "survey" | "container";
+    textAreaWidth: number;
+    textGlowEnabled: boolean;
+    overlapEnabled: boolean;
+    backgroundColor: string;
+    titleColor: string;
+    descriptionColor: string;
+    backgroundImage: string;
+    renderBackgroundImage: string;
+    backgroundImageFit: "cover" | "fill" | "contain" | "tile";
+    backgroundImageOpacity: number;
+    logoPositionX: HorizontalAlignment;
+    logoPositionY: VerticalAlignment;
+    titlePositionX: HorizontalAlignment;
+    titlePositionY: VerticalAlignment;
+    descriptionPositionX: HorizontalAlignment;
+    descriptionPositionY: VerticalAlignment;
+    logoStyle: {
+        gridColumn: number;
+        gridRow: number;
+    };
+    titleStyle: {
+        gridColumn: number;
+        gridRow: number;
+    };
+    descriptionStyle: {
+        gridColumn: number;
+        gridRow: number;
+    };
+    headerClasses: string;
+    contentClasses: string;
+    width: number;
+    maxWidth: string;
+    backgroundImageClasses: string;
+    get renderedHeight(): string;
+    get renderedTextAreaWidth(): string;
+    get isEmpty(): boolean;
+    get survey(): SurveyModel;
+    set survey(newValue: SurveyModel);
+    get backgroundImageStyle(): {
+        opacity: number;
+        backgroundImage: string;
+        backgroundSize: string;
+    };
+    protected onPropertyValueChanged(name: string, oldValue: any, newValue: any): void;
+    getVisibleRows(): Array<number>;
+    getContentMaxWidth(cell: CoverCell): string;
+    processResponsiveness(): void;
+    createLayoutElements(): Array<ISurveyLayoutElement>;
+    private isAdvancedHeaderInContainer;
+    get hasBackground(): boolean;
+}

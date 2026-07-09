@@ -1,0 +1,79 @@
+/**
+ * @since 1.0.0
+ */
+import * as Reactivity from "@effect/experimental/Reactivity";
+import * as Client from "@effect/sql/SqlClient";
+import { SqlError } from "@effect/sql/SqlError";
+import * as Config from "effect/Config";
+import type { ConfigError } from "effect/ConfigError";
+import * as Context from "effect/Context";
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Scope from "effect/Scope";
+/**
+ * @category type ids
+ * @since 1.0.0
+ */
+export declare const TypeId: unique symbol;
+/**
+ * @category type ids
+ * @since 1.0.0
+ */
+export type TypeId = typeof TypeId;
+/**
+ * @category models
+ * @since 1.0.0
+ */
+export interface SqliteClient extends Client.SqlClient {
+    readonly [TypeId]: TypeId;
+    readonly config: SqliteClientConfig;
+    readonly export: Effect.Effect<Uint8Array, SqlError>;
+    readonly backup: (destination: string) => Effect.Effect<BackupMetadata, SqlError>;
+    readonly loadExtension: (path: string) => Effect.Effect<void, SqlError>;
+    /** Not supported in sqlite */
+    readonly updateValues: never;
+}
+/**
+ * @category models
+ * @since 1.0.0
+ */
+export interface BackupMetadata {
+    readonly totalPages: number;
+    readonly remainingPages: number;
+}
+/**
+ * @category tags
+ * @since 1.0.0
+ */
+export declare const SqliteClient: Context.Tag<SqliteClient, SqliteClient>;
+/**
+ * @category models
+ * @since 1.0.0
+ */
+export interface SqliteClientConfig {
+    readonly filename: string;
+    readonly readonly?: boolean | undefined;
+    readonly prepareCacheSize?: number | undefined;
+    readonly prepareCacheTTL?: Duration.DurationInput | undefined;
+    readonly disableWAL?: boolean | undefined;
+    readonly spanAttributes?: Record<string, unknown> | undefined;
+    readonly transformResultNames?: ((str: string) => string) | undefined;
+    readonly transformQueryNames?: ((str: string) => string) | undefined;
+}
+/**
+ * @category constructor
+ * @since 1.0.0
+ */
+export declare const make: (options: SqliteClientConfig) => Effect.Effect<SqliteClient, never, Scope.Scope | Reactivity.Reactivity>;
+/**
+ * @category layers
+ * @since 1.0.0
+ */
+export declare const layerConfig: (config: Config.Config.Wrap<SqliteClientConfig>) => Layer.Layer<SqliteClient | Client.SqlClient, ConfigError>;
+/**
+ * @category layers
+ * @since 1.0.0
+ */
+export declare const layer: (config: SqliteClientConfig) => Layer.Layer<SqliteClient | Client.SqlClient, ConfigError>;
+//# sourceMappingURL=SqliteClient.d.ts.map

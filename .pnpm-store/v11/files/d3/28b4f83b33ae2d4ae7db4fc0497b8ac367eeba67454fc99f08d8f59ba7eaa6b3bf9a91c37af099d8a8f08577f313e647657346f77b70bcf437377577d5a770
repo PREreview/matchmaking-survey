@@ -1,0 +1,34 @@
+import { MatrixDropdownRowModelBase } from "../question_matrixdropdownbase";
+import { QuestionMatrixDynamicModel, MatrixDynamicRowModel } from "../question_matrixdynamic";
+import { DragDropCore } from "./core";
+export declare class DragDropMatrixRows extends DragDropCore<QuestionMatrixDynamicModel> {
+    private draggedRenderedRow;
+    private initialDraggedElementIndex;
+    private lastDropTargetParentElement;
+    private dropIsBanned;
+    protected get draggedElementType(): string;
+    protected restoreUserSelectValue: string;
+    private patchUserSelect;
+    private matrixRowMap;
+    protected onStartDrag(): void;
+    private fillMatricies;
+    private fillMatrixRowMap;
+    private get shortcutClass();
+    protected createDraggedElementShortcut(text: string, draggedElementNode: HTMLElement, event: PointerEvent): HTMLElement;
+    private fromIndex;
+    private toIndex;
+    private toMatrix;
+    protected getDropTargetByDataAttributeValue(dataAttributeValue: any): MatrixDropdownRowModelBase;
+    canInsertIntoThisRow(row: MatrixDynamicRowModel): boolean;
+    protected isDropTargetValid(dropTarget: any, dropTargetNode?: HTMLElement): boolean;
+    protected calculateIsBottom(clientY: number, dropTargetNode?: HTMLElement): boolean;
+    private expandCollapseTimer;
+    private expandCollapseHandlingRow;
+    protected doDragOver(): void;
+    private removeGhost;
+    protected doBanDropHere: () => void;
+    protected afterDragOver(dropTargetNode: HTMLElement): void;
+    protected doDrop: () => QuestionMatrixDynamicModel;
+    clear(): void;
+    private clearExpandCollapseTimeout;
+}

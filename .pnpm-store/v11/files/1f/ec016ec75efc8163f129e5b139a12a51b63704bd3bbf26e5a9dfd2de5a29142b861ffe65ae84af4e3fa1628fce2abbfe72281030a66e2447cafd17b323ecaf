@@ -1,0 +1,16 @@
+import * as React from "react";
+export declare class SurveyLocStringViewer extends React.Component<any, any> {
+    constructor(props: any);
+    private rootRef;
+    private get locStr();
+    private get style();
+    private get textClass();
+    componentDidMount(): void;
+    componentWillUnmount(): void;
+    componentDidUpdate(prevProps: any, prevState: any): void;
+    private isRendering;
+    private onChangedHandler;
+    private reactOnStrChanged;
+    render(): React.JSX.Element | null;
+    protected renderString(): React.JSX.Element;
+}
