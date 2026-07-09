@@ -13,3 +13,9 @@ prod:
 .PHONY: clear
 clear:
 	rm -rf data/
+
+.PHONY: check
+check:
+	pnpm lint
+	pnpm typecheck
+	pnpm test
