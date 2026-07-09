@@ -55,17 +55,7 @@ const s: Record<string, React.CSSProperties> = {
   },
 }
 
-function usePassword() {
-  const [password, setPassword] = useState("")
-  return { password, setPassword }
-}
-
-function authHeader(password: string) {
-  return { Authorization: `Bearer ${password}` }
-}
-
 export default function AdminPage() {
-  const { password, setPassword } = usePassword()
   const [batches, setBatches] = useState<Batch[]>([])
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [uploadError, setUploadError] = useState("")
@@ -74,16 +64,14 @@ export default function AdminPage() {
 
   const origin = window.location.origin
 
-  const loadBatches = async (pw: string) => {
-    const res = await fetch("/api/admin/batches", {
-      headers: authHeader(pw),
-    })
+  const loadBatches = async () => {
+    const res = await fetch("/api/admin/batches")
     if (res.ok) setBatches(await res.json())
   }
 
   useEffect(() => {
-    if (password) loadBatches(password)
-  }, [password])
+    loadBatches()
+  }, [])
 
   const handleUpload = async () => {
     const file = fileRef.current?.files?.[0]
@@ -95,7 +83,7 @@ export default function AdminPage() {
       const text = await file.text()
       const res = await fetch("/api/admin/upload", {
         method: "POST",
-        headers: { "content-type": "text/plain", ...authHeader(password) },
+        headers: { "content-type": "text/plain" },
         body: text,
       })
       if (!res.ok) {
@@ -104,7 +92,7 @@ export default function AdminPage() {
       } else {
         const result: UploadResult = await res.json()
         setUploadResult(result)
-        await loadBatches(password)
+        await loadBatches()
       }
     } catch (e) {
       setUploadError(String(e))
@@ -121,21 +109,6 @@ export default function AdminPage() {
   return (
     <div style={s.page}>
       <h1 style={s.h1}>Survey Admin</h1>
-
-      {/* Auth */}
-      <div style={s.section}>
-        <h2 style={s.h2}>Authentication</h2>
-        <input
-          style={s.input}
-          type="password"
-          placeholder="Admin password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button style={s.btn} onClick={() => loadBatches(password)}>
-          Load
-        </button>
-      </div>
 
       {/* Upload */}
       <div style={s.section}>
@@ -238,30 +211,15 @@ export default function AdminPage() {
       )}
 
       {/* Export */}
-      {password && (
-        <div style={s.section}>
-          <h2 style={s.h2}>Export</h2>
-          <a
-            href="/api/admin/export.csv"
-            style={{ ...s.btn, textDecoration: "none", display: "inline-block" }}
-            onClick={(e) => {
-              e.preventDefault()
-              fetch("/api/admin/export.csv", { headers: authHeader(password) })
-                .then((r) => r.blob())
-                .then((blob) => {
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement("a")
-                  a.href = url
-                  a.download = "responses.csv"
-                  a.click()
-                  URL.revokeObjectURL(url)
-                })
-            }}
-          >
-            Download responses.csv
-          </a>
-        </div>
-      )}
+      <div style={s.section}>
+        <h2 style={s.h2}>Export</h2>
+        <a
+          href="/api/admin/export.csv"
+          style={{ ...s.btn, textDecoration: "none", display: "inline-block" }}
+        >
+          Download responses.csv
+        </a>
+      </div>
     </div>
   )
 }

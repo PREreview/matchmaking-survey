@@ -21,17 +21,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // Admin auth middleware
 // ---------------------------------------------------------------------------
 
+function checkBasicAuth(authHeader: string): boolean {
+  const password = process.env.ADMIN_PASSWORD ?? ""
+  if (!password) return false
+  if (!authHeader.startsWith("Basic ")) return false
+  const decoded = Buffer.from(authHeader.slice(6), "base64").toString()
+  const colonIdx = decoded.indexOf(":")
+  if (colonIdx === -1) return false
+  return decoded.slice(colonIdx + 1) === password
+}
+
+const unauthorized = HttpServerResponse.empty({ status: 401 }).pipe(
+  HttpServerResponse.setHeader("WWW-Authenticate", 'Basic realm="Admin"'),
+)
+
 const adminAuth = HttpMiddleware.make((app) =>
   Effect.gen(function* () {
     const req = yield* HttpServerRequest.HttpServerRequest
-    const password = process.env.ADMIN_PASSWORD ?? ""
     const auth = req.headers["authorization"] ?? ""
-    if (!password || auth !== `Bearer ${password}`) {
-      return yield* HttpServerResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      )
-    }
+    if (!checkBasicAuth(auth)) return unauthorized
     return yield* app
   }),
 )
@@ -196,6 +204,15 @@ function serveStatic(urlPath: string) {
 export const app = HttpRouter.empty.pipe(
   HttpRouter.mount("/api/s", surveyRouter),
   HttpRouter.mount("/api/admin", adminRouter),
+  HttpRouter.get(
+    "/admin",
+    Effect.gen(function* () {
+      const req = yield* HttpServerRequest.HttpServerRequest
+      const auth = req.headers["authorization"] ?? ""
+      if (!checkBasicAuth(auth)) return unauthorized
+      return serveStatic("/index.html")
+    }),
+  ),
   HttpRouter.get(
     "/*",
     Effect.gen(function* () {
