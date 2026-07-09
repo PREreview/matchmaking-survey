@@ -1,0 +1,8 @@
+node_modules
+.git
+.pnpm-store
+data
+dist
+test-results
+playwright-report
+blob-report

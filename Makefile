@@ -22,6 +22,9 @@ check:
 
 .PHONY: end2end
 end2end:
-	pnpm build
-	pnpm exec playwright install --with-deps chromium
-	pnpm exec playwright test
+	docker build -f Dockerfile.e2e -t $(IMAGE)-e2e .
+	mkdir -p $(PWD)/playwright-report $(PWD)/test-results
+	docker run --rm \
+		-v $(PWD)/playwright-report:/app/playwright-report \
+		-v $(PWD)/test-results:/app/test-results \
+		$(IMAGE)-e2e
