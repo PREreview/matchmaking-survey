@@ -46,4 +46,6 @@ test("admin uploads a csv, a scientist completes the survey, admin downloads res
   const csvContent = fs.readFileSync(csvPath, "utf-8")
   expect(csvContent).toContain("rating")
   expect(csvContent).toContain("5")
+  expect(csvContent).toContain("doi")
+  expect(csvContent).toContain("10.9999/e2e-shared-paper")
 })

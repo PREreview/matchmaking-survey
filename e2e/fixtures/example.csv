@@ -1,3 +1,3 @@
-orcid,title,abstract
-0000-0001-1111-1111,E2E Fixture Paper One,Abstract for the first fixture paper used by the e2e happy-path test.
-0000-0002-2222-2222,E2E Fixture Paper Two,Abstract for the second fixture paper used by the e2e happy-path test.
+orcid,title,abstract,doi
+0000-0001-1111-1111,E2E Fixture Paper One,Abstract for the first fixture paper used by the e2e happy-path test.,10.9999/e2e-shared-paper
+0000-0002-2222-2222,E2E Fixture Paper One,Abstract for the first fixture paper used by the e2e happy-path test.,10.9999/e2e-shared-paper
