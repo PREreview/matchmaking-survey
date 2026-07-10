@@ -13,7 +13,7 @@ type Scientist = {
 type Batch = {
   id: number
   uploaded_at: string
-  scientists: Scientist[]
+  scientists: readonly Scientist[]
 }
 
 const COPY_SCRIPT = `

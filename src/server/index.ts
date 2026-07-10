@@ -6,21 +6,35 @@ import {
   HttpServerResponse,
 } from "@effect/platform"
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node"
-import { Effect, Layer, Schema } from "effect"
+import { Chunk, Effect, Layer, Stream } from "effect"
 import { createServer } from "node:http"
-import { readFileSync } from "node:fs"
-import { join, dirname } from "node:path"
-import { fileURLToPath } from "node:url"
 import * as Admin from "./routes/admin.js"
 import * as Survey from "./routes/survey.js"
 import * as Db from "./db.js"
 import * as SurveyViews from "./views/survey.js"
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import * as AdminViews from "./views/admin.js"
 
 function htmlResponse(html: string, status = 200) {
   return HttpServerResponse.text(html, { contentType: "text/html", status })
 }
+
+function getOrigin(req: HttpServerRequest.HttpServerRequest) {
+  const host = req.headers["host"] ?? "localhost"
+  const proto = req.headers["x-forwarded-proto"] ?? "http"
+  return `${proto}://${host}`
+}
+
+const listBatchesWithScientists = Db.listBatches.pipe(
+  Effect.andThen((batches) =>
+    Effect.all(
+      batches.map((b) =>
+        Db.listScientistsForBatch(b.id).pipe(
+          Effect.map((scientists) => ({ ...b, scientists })),
+        ),
+      ),
+    ),
+  ),
+)
 
 // ---------------------------------------------------------------------------
 // Admin auth middleware
@@ -47,66 +61,6 @@ const adminAuth = HttpMiddleware.make((app) =>
     if (!checkBasicAuth(auth)) return unauthorized
     return yield* app
   }),
-)
-
-// ---------------------------------------------------------------------------
-// Survey routes  /api/s/:token
-// ---------------------------------------------------------------------------
-
-const surveyRouter = HttpRouter.empty.pipe(
-  HttpRouter.get(
-    "/:token",
-    Effect.gen(function* () {
-      const params = yield* HttpRouter.params
-      const token = params["token"] ?? ""
-      const state = yield* Survey.getSurveyState(token)
-      if (!state) {
-        return yield* HttpServerResponse.json(
-          { error: "Not found" },
-          { status: 404 },
-        )
-      }
-      return yield* HttpServerResponse.json(state)
-    }),
-  ),
-  HttpRouter.post(
-    "/:token/answer",
-    Effect.gen(function* () {
-      const params = yield* HttpRouter.params
-      const token = params["token"] ?? ""
-      const body = yield* HttpServerRequest.schemaBodyJson(
-        Schema.Struct({
-          paper_id: Schema.Number,
-          rating: Schema.Number,
-          comment: Schema.optional(Schema.NullOr(Schema.String)),
-        }),
-      )
-      const result = yield* Survey.answerPaper(
-        token,
-        body.paper_id,
-        body.rating,
-        body.comment ?? null,
-      )
-      if (!result.ok) {
-        const status = result.error === "not_found" ? 404 : 409
-        return yield* HttpServerResponse.json(result, { status })
-      }
-      return yield* HttpServerResponse.json(result)
-    }),
-  ),
-  HttpRouter.post(
-    "/:token/submit",
-    Effect.gen(function* () {
-      const params = yield* HttpRouter.params
-      const token = params["token"] ?? ""
-      const result = yield* Survey.submitSurvey(token)
-      if (!result.ok) {
-        const status = result.error === "not_found" ? 404 : 409
-        return yield* HttpServerResponse.json(result, { status })
-      }
-      return yield* HttpServerResponse.json(result)
-    }),
-  ),
 )
 
 // ---------------------------------------------------------------------------
@@ -241,26 +195,63 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
 )
 
 // ---------------------------------------------------------------------------
-// Admin routes  /api/admin
+// Admin pages  /admin, /admin/upload, /admin/export.csv  (server-rendered)
 // ---------------------------------------------------------------------------
 
 const toCsvCell = (v: string) => `"${v.replace(/"/g, '""')}"`
 const toCsvLine = (values: string[]) => values.map(toCsvCell).join(",")
 
-const adminRouter = HttpRouter.empty.pipe(
+const adminPagesRouter = HttpRouter.empty.pipe(
+  HttpRouter.get(
+    "/",
+    Effect.gen(function* () {
+      const req = yield* HttpServerRequest.HttpServerRequest
+      const url = new URL(req.url, "http://localhost")
+      const batchParam = url.searchParams.get("batch")
+      const batches = yield* listBatchesWithScientists
+      return htmlResponse(
+        AdminViews.renderAdminPage({
+          origin: getOrigin(req),
+          batches,
+          highlightBatchId: batchParam ? Number(batchParam) : null,
+          duplicateError: null,
+        }).__html,
+      )
+    }),
+  ),
   HttpRouter.post(
     "/upload",
     Effect.gen(function* () {
       const req = yield* HttpServerRequest.HttpServerRequest
-      const csvText = yield* req.text
+      const parts = yield* Stream.runCollect(req.multipartStream)
+      const filePart = Chunk.toReadonlyArray(parts).find(
+        (p) => p._tag === "File" && p.key === "csv",
+      )
+      if (!filePart || filePart._tag !== "File") {
+        return htmlResponse("Missing csv file", 400)
+      }
+      const bytes = yield* filePart.contentEffect
+      const csvText = new TextDecoder().decode(bytes)
       const result = yield* Admin.importCsv(csvText)
-      return yield* HttpServerResponse.json(result)
+      return yield* HttpServerResponse.redirect(
+        `/admin?batch=${result.batchId}`,
+        { status: 303 },
+      )
     }).pipe(
       Effect.catchTag("DuplicateCsvRowsError", (e) =>
-        HttpServerResponse.json(
-          { error: "duplicate_rows", duplicates: e.duplicates },
-          { status: 400 },
-        ),
+        Effect.gen(function* () {
+          const req = yield* HttpServerRequest.HttpServerRequest
+          const batches = yield* listBatchesWithScientists
+          return htmlResponse(
+            AdminViews.renderAdminPage({
+              origin: getOrigin(req),
+              batches,
+              highlightBatchId: null,
+              duplicateError: e.duplicates,
+            }).__html,
+            400,
+          )
+        }),
       ),
     ),
   ),
@@ -301,86 +292,18 @@ const adminRouter = HttpRouter.empty.pipe(
       })
     }),
   ),
-  HttpRouter.get(
-    "/batches",
-    Effect.gen(function* () {
-      const batches = yield* Db.listBatches
-      const withScientists = yield* Effect.all(
-        batches.map((b) =>
-          Db.listScientistsForBatch(b.id).pipe(
-            Effect.map((scientists) => ({ ...b, scientists })),
-          ),
-        ),
-      )
-      return yield* HttpServerResponse.json(withScientists)
-    }),
-  ),
 ).pipe(HttpRouter.use(adminAuth))
-
-// ---------------------------------------------------------------------------
-// Static file serving
-// ---------------------------------------------------------------------------
-
-const staticDir = join(__dirname, "../../dist/public")
-
-function serveStatic(urlPath: string) {
-  const safePath = urlPath.replace(/\.\./g, "").replace(/^\/+/, "")
-  let filePath = join(staticDir, safePath || "index.html")
-  try {
-    const content = readFileSync(filePath)
-    const ext = filePath.split(".").pop() ?? ""
-    const mime: Record<string, string> = {
-      html: "text/html",
-      js: "application/javascript",
-      css: "text/css",
-      svg: "image/svg+xml",
-      png: "image/png",
-      ico: "image/x-icon",
-    }
-    return HttpServerResponse.uint8Array(new Uint8Array(content), {
-      headers: { "content-type": mime[ext] ?? "application/octet-stream" },
-    })
-  } catch {
-    // Fall back to index.html for client-side routing
-    try {
-      const index = readFileSync(join(staticDir, "index.html"))
-      return HttpServerResponse.uint8Array(new Uint8Array(index), {
-        headers: { "content-type": "text/html" },
-      })
-    } catch {
-      return HttpServerResponse.text("Not found", { status: 404 })
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // App router
 // ---------------------------------------------------------------------------
 
 export const app = HttpRouter.empty.pipe(
-  HttpRouter.mount("/api/s", surveyRouter),
-  HttpRouter.mount("/api/admin", adminRouter),
   HttpRouter.mount("/s", surveyPagesRouter),
+  HttpRouter.mount("/admin", adminPagesRouter),
   HttpRouter.get(
     "/",
     Effect.succeed(htmlResponse(SurveyViews.renderLandingPage().__html)),
-  ),
-  HttpRouter.get(
-    "/admin",
-    Effect.gen(function* () {
-      const req = yield* HttpServerRequest.HttpServerRequest
-      const auth = req.headers["authorization"] ?? ""
-      if (!checkBasicAuth(auth)) return unauthorized
-      return serveStatic("/index.html")
-    }),
-  ),
-  HttpRouter.get(
-    "/*",
-    Effect.gen(function* () {
-      const req = yield* HttpServerRequest.HttpServerRequest
-      const url = new URL(req.url, "http://localhost")
-      return serveStatic(url.pathname)
-    }),
   ),
 )
 
