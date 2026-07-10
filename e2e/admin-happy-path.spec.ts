@@ -29,6 +29,9 @@ test("admin uploads a csv, a scientist completes the survey, admin downloads res
 
   await page.goto(surveyHref)
 
+  await expect(page.getByRole("heading", { name: "Before you begin" })).toBeVisible()
+  await page.getByRole("button", { name: "Begin" }).click()
+
   let done = false
   while (!done) {
     done = await answerCurrentPage(page)

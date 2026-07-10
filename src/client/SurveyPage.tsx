@@ -27,37 +27,55 @@ function buildSurveyJson(papers: Paper[], savedResponses: Response[]) {
     showProgressBar: "top",
     progressBarType: "pages",
     showQuestionNumbers: false,
-    pages: papers.map((paper) => ({
-      name: `paper_${paper.id}`,
-      elements: [
-        {
-          type: "html",
-          name: `abstract_${paper.id}`,
-          html: `<div class="paper-abstract">
-            <h2 class="paper-title">${escapeHtml(paper.title)}</h2>
-            <p>${escapeHtml(paper.abstract)}</p>
-          </div>`,
-        },
-        {
-          type: "rating",
-          name: `rating_${paper.id}`,
-          title: "Does this look interesting to you?",
-          isRequired: true,
-          rateMin: 1,
-          rateMax: 5,
-          minRateDescription: RATING_LABELS[1],
-          maxRateDescription: RATING_LABELS[5],
-          defaultValue: responseMap.get(paper.id) ?? undefined,
-        },
-        {
-          type: "comment",
-          name: `comment_${paper.id}`,
-          title: "Any comments about this match or your rating? (optional)",
-          isRequired: false,
-          defaultValue: commentMap.get(paper.id) ?? undefined,
-        },
-      ],
-    })),
+    firstPageIsStarted: true,
+    startSurveyText: "Begin",
+    pages: [
+      {
+        name: "intro",
+        elements: [
+          {
+            type: "html",
+            name: "intro_html",
+            html: `<div class="paper-abstract">
+              <h2 class="paper-title">Before you begin</h2>
+              <p>You've been matched with ${papers.length} paper${papers.length === 1 ? "" : "s"} based on your expertise. For each one, we'll show you the title and abstract and ask how interesting you find it as a potential match, with an optional space for comments.</p>
+              <p>Your answers are saved as you go, so you can leave and come back at any time using the same link.</p>
+            </div>`,
+          },
+        ],
+      },
+      ...papers.map((paper) => ({
+        name: `paper_${paper.id}`,
+        elements: [
+          {
+            type: "html",
+            name: `abstract_${paper.id}`,
+            html: `<div class="paper-abstract">
+              <h2 class="paper-title">${escapeHtml(paper.title)}</h2>
+              <p>${escapeHtml(paper.abstract)}</p>
+            </div>`,
+          },
+          {
+            type: "rating",
+            name: `rating_${paper.id}`,
+            title: "Does this look interesting to you?",
+            isRequired: true,
+            rateMin: 1,
+            rateMax: 5,
+            minRateDescription: RATING_LABELS[1],
+            maxRateDescription: RATING_LABELS[5],
+            defaultValue: responseMap.get(paper.id) ?? undefined,
+          },
+          {
+            type: "comment",
+            name: `comment_${paper.id}`,
+            title: "Any comments about this match or your rating? (optional)",
+            isRequired: false,
+            defaultValue: commentMap.get(paper.id) ?? undefined,
+          },
+        ],
+      })),
+    ],
     completedHtml:
       "<h3>Thank you for your responses!</h3><p>Your feedback has been recorded.</p>",
   }
