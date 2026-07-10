@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig*.json ./
 COPY src ./src
 
-RUN pnpm build
+RUN pnpm exec esbuild src/server/index.ts --bundle --platform=node --outfile=dist/server/index.js --format=esm --packages=external
 
 # ---------------------------------------------------------------------------
 
