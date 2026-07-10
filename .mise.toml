@@ -1,4 +1,6 @@
 [tools]
 hivemind = "latest"
-node = "lts"
-pnpm = "latest"
+pnpm = "10"
+
+[settings]
+idiomatic_version_file_enable_tools = ["node"]
