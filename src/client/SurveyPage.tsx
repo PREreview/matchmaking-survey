@@ -37,9 +37,13 @@ function buildSurveyJson(papers: Paper[], savedResponses: Response[]) {
             type: "html",
             name: "intro_html",
             html: `<div class="paper-abstract">
-              <h2 class="paper-title">Before you begin</h2>
-              <p>You've been matched with ${papers.length} paper${papers.length === 1 ? "" : "s"} based on your expertise. For each one, we'll show you the title and abstract and ask how interesting you find it as a potential match, with an optional space for comments.</p>
-              <p>Your answers are saved as you go, so you can leave and come back at any time using the same link.</p>
+              <h2 class="paper-title">PREreview matchmaking survey</h2>
+              <p>Thank you for joining our experiment. This will be quick.</p>
+              <p>We’ll show you ${papers.length} preprint title${papers.length === 1 ? "" : "s"} and abstracts. These are based on works that appear on your public ORCID record.</p>
+              <p>For each preprint, we’ll ask you to rate how interesting it seems to you.</p>
+              <p>We’re just looking for your initial response to the preprint title and abstract, so we’re not expecting you to take any other action (including actually reading the preprint!).</p>
+              <p>We’re not expecting all, or even any, of these matches to be perfect. Honest reactions are the most valuable thing to us, and will help us improve how matching works.</p>
+              <p><strong>There are no wrong answers.</strong> We’re testing our work, not you!</p>
             </div>`,
           },
         ],
