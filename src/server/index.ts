@@ -70,9 +70,18 @@ const surveyRouter = HttpRouter.empty.pipe(
       const params = yield* HttpRouter.params
       const token = params["token"] ?? ""
       const body = yield* HttpServerRequest.schemaBodyJson(
-        Schema.Struct({ paper_id: Schema.Number, rating: Schema.Number }),
+        Schema.Struct({
+          paper_id: Schema.Number,
+          rating: Schema.Number,
+          comment: Schema.optional(Schema.NullOr(Schema.String)),
+        }),
       )
-      const result = yield* Survey.answerPaper(token, body.paper_id, body.rating)
+      const result = yield* Survey.answerPaper(
+        token,
+        body.paper_id,
+        body.rating,
+        body.comment ?? null,
+      )
       if (!result.ok) {
         const status = result.error === "not_found" ? 404 : 409
         return yield* HttpServerResponse.json(result, { status })
@@ -131,6 +140,7 @@ const adminRouter = HttpRouter.empty.pipe(
         "title",
         "abstract",
         "rating",
+        "comment",
         "answered_at",
       ])
       const lines = rows.map((r) =>
@@ -142,6 +152,7 @@ const adminRouter = HttpRouter.empty.pipe(
           r.title,
           r.abstract,
           String(r.rating),
+          r.comment ?? "",
           r.answered_at,
         ]),
       )

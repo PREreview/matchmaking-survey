@@ -31,6 +31,7 @@ export type Response = {
   scientist_id: number
   paper_id: number
   rating: number
+  comment: string | null
   answered_at: string
 }
 export type ExportRow = {
@@ -41,6 +42,7 @@ export type ExportRow = {
   title: string
   abstract: string
   rating: number
+  comment: string | null
   answered_at: string
 }
 
@@ -80,10 +82,15 @@ export const migrate = Effect.gen(function* () {
       scientist_id INTEGER NOT NULL REFERENCES scientists(id),
       paper_id     INTEGER NOT NULL REFERENCES papers(id),
       rating       INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+      comment      TEXT,
       answered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
       UNIQUE (scientist_id, paper_id)
     )
   `
+  const responseColumns = yield* sql<{ name: string }>`PRAGMA table_info(responses)`
+  if (!responseColumns.some((c) => c.name === "comment")) {
+    yield* sql`ALTER TABLE responses ADD COLUMN comment TEXT`
+  }
 })
 
 export const createBatch = Effect.gen(function* () {
@@ -169,14 +176,16 @@ export const upsertResponse = (
   scientistId: number,
   paperId: number,
   rating: number,
+  comment: string | null = null,
 ) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
-      INSERT INTO responses (scientist_id, paper_id, rating, answered_at)
-      VALUES (${scientistId}, ${paperId}, ${rating}, datetime('now'))
+      INSERT INTO responses (scientist_id, paper_id, rating, comment, answered_at)
+      VALUES (${scientistId}, ${paperId}, ${rating}, ${comment}, datetime('now'))
       ON CONFLICT (scientist_id, paper_id) DO UPDATE SET
         rating      = excluded.rating,
+        comment     = excluded.comment,
         answered_at = excluded.answered_at
     `
   })
@@ -200,6 +209,7 @@ export const exportResponses = Effect.gen(function* () {
       p.title,
       p.abstract,
       r.rating,
+      r.comment,
       r.answered_at
     FROM responses r
     JOIN scientists s ON s.id = r.scientist_id

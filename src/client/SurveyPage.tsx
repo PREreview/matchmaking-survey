@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import type { SurveyModel } from "survey-core"
 
 type Paper = { id: number; title: string; abstract: string; display_order: number }
-type Response = { paper_id: number; rating: number }
+type Response = { paper_id: number; rating: number; comment: string | null }
 type State =
   | { status: "loading" }
   | { status: "not_found" }
@@ -22,6 +22,7 @@ const RATING_LABELS: Record<number, string> = {
 
 function buildSurveyJson(papers: Paper[], savedResponses: Response[]) {
   const responseMap = new Map(savedResponses.map((r) => [r.paper_id, r.rating]))
+  const commentMap = new Map(savedResponses.map((r) => [r.paper_id, r.comment]))
   return {
     showProgressBar: "top",
     progressBarType: "pages",
@@ -47,6 +48,13 @@ function buildSurveyJson(papers: Paper[], savedResponses: Response[]) {
           minRateDescription: RATING_LABELS[1],
           maxRateDescription: RATING_LABELS[5],
           defaultValue: responseMap.get(paper.id) ?? undefined,
+        },
+        {
+          type: "comment",
+          name: `comment_${paper.id}`,
+          title: "Any comments about this paper? (optional)",
+          isRequired: false,
+          defaultValue: commentMap.get(paper.id) ?? undefined,
         },
       ],
     })),
@@ -105,39 +113,31 @@ export default function SurveyPage({ token }: { token: string }) {
   const model = new Model(surveyJson)
   modelRef.current = model
 
+  const savePaperAnswer = async (sender: SurveyModel, pageName: string) => {
+    const match = pageName.match(/^paper_(\d+)$/)
+    if (!match) return
+    const paperId = Number(match[1])
+    const rating = sender.getValue(`rating_${paperId}`)
+    if (rating == null) return
+    const comment = sender.getValue(`comment_${paperId}`) ?? null
+    await fetch(`/api/s/${token}/answer`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ paper_id: paperId, rating, comment }),
+    })
+  }
+
   model.onCurrentPageChanged.add(async (sender, options) => {
     // Save the answer for the page we just left
     const prevPage = options.oldCurrentPage
     if (!prevPage) return
-    for (const question of prevPage.questions) {
-      const match = question.name.match(/^rating_(\d+)$/)
-      if (!match) continue
-      const paperId = Number(match[1])
-      const rating = sender.getValue(question.name)
-      if (rating == null) continue
-      await fetch(`/api/s/${token}/answer`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ paper_id: paperId, rating }),
-      })
-    }
+    await savePaperAnswer(sender, prevPage.name)
   })
 
   model.onComplete.add(async (sender) => {
     // Save any remaining answers from the last page
     for (const page of sender.pages) {
-      for (const question of page.questions) {
-        const match = question.name.match(/^rating_(\d+)$/)
-        if (!match) continue
-        const paperId = Number(match[1])
-        const rating = sender.getValue(question.name)
-        if (rating == null) continue
-        await fetch(`/api/s/${token}/answer`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ paper_id: paperId, rating }),
-        })
-      }
+      await savePaperAnswer(sender, page.name)
     }
     await fetch(`/api/s/${token}/submit`, { method: "POST" })
     setState({ status: "submitted" })

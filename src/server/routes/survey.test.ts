@@ -70,6 +70,20 @@ describe("answerPaper", () => {
     expect(result).toEqual({ ok: true })
   })
 
+  it("saves a rating with an optional comment", async () => {
+    const result = await run(
+      seed.pipe(
+        Effect.andThen(({ scientist, papers }) =>
+          Survey.answerPaper("test-token", papers[0].id, 4, "Nice work").pipe(
+            Effect.andThen(() => Db.listResponsesForScientist(scientist.id)),
+          ),
+        ),
+      ),
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].comment).toBe("Nice work")
+  })
+
   it("returns not_found for an unknown token", async () => {
     const result = await run(Survey.answerPaper("no-token", 1, 3))
     expect(result).toEqual({ ok: false, error: "not_found" })

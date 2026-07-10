@@ -224,25 +224,39 @@ describe("responses", () => {
     )
     expect(responses).toHaveLength(1)
     expect(responses[0].rating).toBe(4)
+    expect(responses[0].comment).toBeNull()
+  })
+
+  it("upserts a response with a comment", async () => {
+    const responses = await run(
+      withScientistAndPaper(({ scientistId, paperId }) =>
+        Db.upsertResponse(scientistId, paperId, 4, "Great paper!").pipe(
+          Effect.andThen(() => Db.listResponsesForScientist(scientistId)),
+        ),
+      ),
+    )
+    expect(responses).toHaveLength(1)
+    expect(responses[0].comment).toBe("Great paper!")
   })
 
   it("updates an existing response on re-answer", async () => {
     const responses = await run(
       withScientistAndPaper(({ scientistId, paperId }) =>
         Db.upsertResponse(scientistId, paperId, 2).pipe(
-          Effect.andThen(() => Db.upsertResponse(scientistId, paperId, 5)),
+          Effect.andThen(() => Db.upsertResponse(scientistId, paperId, 5, "Updated comment")),
           Effect.andThen(() => Db.listResponsesForScientist(scientistId)),
         ),
       ),
     )
     expect(responses).toHaveLength(1)
     expect(responses[0].rating).toBe(5)
+    expect(responses[0].comment).toBe("Updated comment")
   })
 
   it("exports all responses joined with batch/scientist/paper data", async () => {
     const rows = await run(
       withScientistAndPaper(({ scientistId, paperId }) =>
-        Db.upsertResponse(scientistId, paperId, 3).pipe(
+        Db.upsertResponse(scientistId, paperId, 3, "Interesting approach").pipe(
           Effect.andThen(() => Db.exportResponses),
         ),
       ),
@@ -252,6 +266,7 @@ describe("responses", () => {
     expect(rows[0].title).toBe("Paper")
     expect(rows[0].doi).toBe("10.1/response-paper")
     expect(rows[0].rating).toBe(3)
+    expect(rows[0].comment).toBe("Interesting approach")
     expect(typeof rows[0].batch_uploaded_at).toBe("string")
   })
 })
