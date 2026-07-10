@@ -54,10 +54,6 @@ test: node_modules
 test-watch: node_modules
 	pnpm exec vitest
 
-.PHONY: test-e2e
-test-e2e: node_modules
-	pnpm exec playwright test
-
 .PHONY: end2end
 end2end:
 	docker build -f Dockerfile.e2e -t $(IMAGE)-e2e .
