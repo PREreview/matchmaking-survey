@@ -72,6 +72,17 @@ const BASE_CSS = `
   .error-summary h2 { color: #d4351c; margin-top: 0; }
   .error-summary a { color: #d4351c; }
   .field-error { color: #d4351c; font-weight: 600; }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 `
 
 export function layout({ title, body }: { title: string; body: Html }): Html {
