@@ -51,6 +51,27 @@ const BASE_CSS = `
   }
   a, button { font: inherit; }
   :focus { outline: 3px solid #0d6efd; outline-offset: 2px; }
+  .button-link, button.button {
+    display: inline-block;
+    padding: 0.6rem 1.5rem;
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  button.button-secondary {
+    background: #6c757d;
+  }
+  .error-summary {
+    border: 4px solid #d4351c;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .error-summary h2 { color: #d4351c; margin-top: 0; }
+  .error-summary a { color: #d4351c; }
+  .field-error { color: #d4351c; font-weight: 600; }
 `
 
 export function layout({ title, body }: { title: string; body: Html }): Html {
