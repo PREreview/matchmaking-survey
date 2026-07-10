@@ -17,9 +17,7 @@ test("admin uploads a csv, a scientist completes the survey, admin downloads res
   page,
 }) => {
   await page.goto("/admin");
-  await expect(
-    page.getByRole("heading", { name: "Survey Admin" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Survey Admin" })).toBeVisible();
 
   await page.locator('input[type="file"]').setInputFiles(FIXTURE_CSV);
   await page.getByRole("button", { name: "Upload" }).click();
@@ -31,9 +29,7 @@ test("admin uploads a csv, a scientist completes the survey, admin downloads res
 
   await page.goto(surveyHref);
 
-  await expect(
-    page.getByRole("heading", { name: "PREreview matchmaking survey" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "PREreview matchmaking survey" })).toBeVisible();
   await page.getByRole("link", { name: "Begin" }).click();
 
   let done = false;

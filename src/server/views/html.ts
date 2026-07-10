@@ -1,7 +1,7 @@
-export type Html = { readonly __html: string }
+export type Html = { readonly __html: string };
 
 export function raw(value: string): Html {
-  return { __html: value }
+  return { __html: value };
 }
 
 function escapeHtml(value: string): string {
@@ -10,35 +10,25 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
+    .replace(/'/g, "&#39;");
 }
 
-type Interpolation =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | Html
-  | Interpolation[]
+type Interpolation = string | number | boolean | null | undefined | Html | Interpolation[];
 
 function stringify(value: Interpolation): string {
-  if (value == null || typeof value === "boolean") return ""
-  if (Array.isArray(value)) return value.map(stringify).join("")
-  if (typeof value === "number") return String(value)
-  if (typeof value === "object") return value.__html
-  return escapeHtml(value)
+  if (value == null || typeof value === "boolean") return "";
+  if (Array.isArray(value)) return value.map(stringify).join("");
+  if (typeof value === "number") return String(value);
+  if (typeof value === "object") return value.__html;
+  return escapeHtml(value);
 }
 
-export function html(
-  strings: TemplateStringsArray,
-  ...values: Interpolation[]
-): Html {
-  let result = strings[0]
+export function html(strings: TemplateStringsArray, ...values: Interpolation[]): Html {
+  let result = strings[0];
   for (const [i, value] of values.entries()) {
-    result += stringify(value) + strings[i + 1]
+    result += stringify(value) + strings[i + 1];
   }
-  return raw(result)
+  return raw(result);
 }
 
 const BASE_CSS = `
@@ -83,20 +73,21 @@ const BASE_CSS = `
     white-space: nowrap;
     border: 0;
   }
-`
+`;
 
 export function layout({ title, body }: { title: string; body: Html }): Html {
   return html`<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${title}</title>
-    <style>${raw(BASE_CSS)}</style>
-  </head>
-  <body>
-    ${body}
-  </body>
-</html>
-`
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>${title}</title>
+        <style>
+          ${raw(BASE_CSS)}
+        </style>
+      </head>
+      <body>
+        ${body}
+      </body>
+    </html> `;
 }

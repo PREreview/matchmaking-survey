@@ -28,8 +28,17 @@ clear:
 .PHONY: check
 check: node_modules
 	pnpm lint
+	pnpm format
 	pnpm typecheck
 	pnpm test
+
+.PHONY: format
+format: node_modules
+	pnpm format
+
+.PHONY: fix-format
+fix-format: node_modules
+	pnpm fix-format
 
 .PHONY: end2end
 end2end:

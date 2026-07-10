@@ -1,20 +1,20 @@
-import { html, layout, raw } from "./html.js"
+import { html, layout, raw } from "./html.js";
 
-const PAGE_STYLE = "max-width:900px;margin:0 auto;padding:2rem;"
+const PAGE_STYLE = "max-width:900px;margin:0 auto;padding:2rem;";
 const SECTION_STYLE =
-  "background:#fff;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);"
+  "background:#fff;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);";
 
 type Scientist = {
-  orcid: string
-  token: string
-  submitted_at: string | null
-}
+  orcid: string;
+  token: string;
+  submitted_at: string | null;
+};
 
 type Batch = {
-  id: number
-  uploaded_at: string
-  scientists: readonly Scientist[]
-}
+  id: number;
+  uploaded_at: string;
+  scientists: readonly Scientist[];
+};
 
 const COPY_SCRIPT = `
 document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
@@ -27,48 +27,39 @@ document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
     });
   });
 });
-`
+`;
 
 function renderScientistRow(origin: string, scientist: Scientist) {
   return html`<tr>
     <td>${scientist.orcid}</td>
     <td>${scientist.submitted_at ? "Submitted" : "Pending"}</td>
     <td><a href="/s/${scientist.token}">${origin}/s/${scientist.token}</a></td>
-  </tr>`
+  </tr>`;
 }
 
-function renderBatch(
-  origin: string,
-  batch: Batch,
-  highlightBatchId: number | null,
-) {
-  const links = batch.scientists
-    .map((s) => `${s.orcid}\t${origin}/s/${s.token}`)
-    .join("\n")
-  const isHighlighted = batch.id === highlightBatchId
+function renderBatch(origin: string, batch: Batch, highlightBatchId: number | null) {
+  const links = batch.scientists.map((s) => `${s.orcid}\t${origin}/s/${s.token}`).join("\n");
+  const isHighlighted = batch.id === highlightBatchId;
   return html`<details
     id="batch-${batch.id}"
     style="margin-bottom:1rem;"
     ${isHighlighted ? raw("open") : raw("")}
   >
     <summary>
-      Batch #${batch.id} — ${batch.uploaded_at} — ${batch.scientists.length}
-      scientists
+      Batch #${batch.id} — ${batch.uploaded_at} — ${batch.scientists.length} scientists
     </summary>
     <div style="margin-top:0.75rem;">
       ${isHighlighted
-        ? html`<p style="color:#198754;">Batch #${batch.id} created — ${batch.scientists.length} scientists</p>`
+        ? html`<p style="color:#198754;">
+            Batch #${batch.id} created — ${batch.scientists.length} scientists
+          </p>`
         : raw("")}
-      <label for="links-${batch.id}">Survey links for this batch (orcid, then url, one per line)</label>
+      <label for="links-${batch.id}"
+        >Survey links for this batch (orcid, then url, one per line)</label
+      >
       <br />
-      <textarea id="links-${batch.id}" readonly rows="3" style="width:100%;">
-${links}</textarea
-      >
-      <button
-        class="button-secondary button"
-        type="button"
-        data-copy-target="links-${batch.id}"
-      >
+      <textarea id="links-${batch.id}" readonly rows="3" style="width:100%;">${links}</textarea>
+      <button class="button-secondary button" type="button" data-copy-target="links-${batch.id}">
         Copy all links
       </button>
       <table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.75rem;">
@@ -84,7 +75,7 @@ ${links}</textarea
         </tbody>
       </table>
     </div>
-  </details>`
+  </details>`;
 }
 
 export function renderAdminPage({
@@ -93,22 +84,26 @@ export function renderAdminPage({
   highlightBatchId,
   duplicateError,
 }: {
-  origin: string
-  batches: Batch[]
-  highlightBatchId: number | null
-  duplicateError: Array<{ orcid: string; doi: string }> | null
+  origin: string;
+  batches: Batch[];
+  highlightBatchId: number | null;
+  duplicateError: Array<{ orcid: string; doi: string }> | null;
 }) {
   const errorSummary = duplicateError
-    ? html`<div class="error-summary" role="alert" aria-labelledby="error-summary-title" tabindex="-1" autofocus>
+    ? html`<div
+        class="error-summary"
+        role="alert"
+        aria-labelledby="error-summary-title"
+        tabindex="-1"
+        autofocus
+      >
         <h2 id="error-summary-title">There is a problem</h2>
         <p>This CSV has duplicate ORCID + DOI rows:</p>
         <ul>
-          ${duplicateError.map(
-            (d) => html`<li>${d.orcid} / ${d.doi}</li>`,
-          )}
+          ${duplicateError.map((d) => html`<li>${d.orcid} / ${d.doi}</li>`)}
         </ul>
       </div>`
-    : raw("")
+    : raw("");
 
   return layout({
     title: "Survey Admin",
@@ -121,21 +116,11 @@ export function renderAdminPage({
         <form method="post" action="/admin/upload" enctype="multipart/form-data">
           <label for="csv-file">CSV file</label>
           <br />
-          <input
-            id="csv-file"
-            type="file"
-            name="csv"
-            accept=".csv,text/csv,text/plain"
-            required
-          />
+          <input id="csv-file" type="file" name="csv" accept=".csv,text/csv,text/plain" required />
           <button class="button" type="submit">Upload</button>
         </form>
       </div>
-      <div
-        aria-live="polite"
-        id="copy-status"
-        class="visually-hidden"
-      ></div>
+      <div aria-live="polite" id="copy-status" class="visually-hidden"></div>
       ${batches.length > 0
         ? html`<div style="${SECTION_STYLE}">
             <h2>All Batches</h2>
@@ -147,8 +132,8 @@ export function renderAdminPage({
         <a class="button-link" href="/admin/export.csv">Download responses.csv</a>
       </div>
       <script>
-        ${raw(COPY_SCRIPT)}
+        ${raw(COPY_SCRIPT)};
       </script>
     </div>`,
-  })
+  });
 }

@@ -9,6 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "oxlint .",
+    "format": "oxfmt --check .",
+    "fix-format": "oxfmt --write .",
     "typecheck": "tsc --noEmit -p tsconfig.server.json",
     "test:e2e": "playwright test",
     "start": "node dist/server/index.js"
@@ -25,6 +27,7 @@
     "@playwright/test": "^1.61.1",
     "@types/node": "^22.0.0",
     "esbuild": "^0.25.0",
+    "oxfmt": "^0.58.0",
     "oxlint": "^1.73.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",

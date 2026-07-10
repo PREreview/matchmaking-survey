@@ -1,8 +1,8 @@
-import { defineConfig } from "@playwright/test"
+import { defineConfig } from "@playwright/test";
 
-export const E2E_PORT = 3100
-export const E2E_ADMIN_PASSWORD = "e2e-test-password"
-export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`
+export const E2E_PORT = 3100;
+export const E2E_ADMIN_PASSWORD = "e2e-test-password";
+export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
 
 export default defineConfig({
   testDir: "e2e",
@@ -27,4 +27,4 @@ export default defineConfig({
       ADMIN_PASSWORD: E2E_ADMIN_PASSWORD,
     },
   },
-})
+});
