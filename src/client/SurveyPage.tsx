@@ -41,7 +41,7 @@ function buildSurveyJson(papers: Paper[], savedResponses: Response[]) {
         {
           type: "rating",
           name: `rating_${paper.id}`,
-          title: "How interesting do you find this paper?",
+          title: "Does this look interesting to you?",
           isRequired: true,
           rateMin: 1,
           rateMax: 5,
@@ -52,7 +52,7 @@ function buildSurveyJson(papers: Paper[], savedResponses: Response[]) {
         {
           type: "comment",
           name: `comment_${paper.id}`,
-          title: "Any comments about this paper? (optional)",
+          title: "Any comments about this match or your rating? (optional)",
           isRequired: false,
           defaultValue: commentMap.get(paper.id) ?? undefined,
         },
