@@ -362,6 +362,10 @@ export const app = HttpRouter.empty.pipe(
   HttpRouter.mount("/api/admin", adminRouter),
   HttpRouter.mount("/s", surveyPagesRouter),
   HttpRouter.get(
+    "/",
+    Effect.succeed(htmlResponse(SurveyViews.renderLandingPage().__html)),
+  ),
+  HttpRouter.get(
     "/admin",
     Effect.gen(function* () {
       const req = yield* HttpServerRequest.HttpServerRequest

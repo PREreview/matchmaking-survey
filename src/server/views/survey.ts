@@ -12,6 +12,15 @@ const RATING_LABELS: Record<number, string> = {
 
 const RATING_ERROR = "Select how interesting this preprint looks to you"
 
+export function renderLandingPage() {
+  return layout({
+    title: "PREreview matchmaking survey",
+    body: html`<main style="${MAIN_STYLE}text-align:center;">
+      <p>Please use the link provided to you to access your survey.</p>
+    </main>`,
+  })
+}
+
 export function renderNotFoundPage() {
   return layout({
     title: "Survey not found — PREreview",

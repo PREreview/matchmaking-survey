@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest"
 import {
   renderIntroPage,
+  renderLandingPage,
   renderNotFoundPage,
   renderPaperPage,
   renderThankYouPage,
 } from "./survey.js"
 
 const paper = { id: 42, title: "A Neat Paper", abstract: "It is about neat things." }
+
+describe("renderLandingPage", () => {
+  it("tells visitors to use their link", () => {
+    const result = renderLandingPage().__html
+    expect(result).toContain(
+      "Please use the link provided to you to access your survey.",
+    )
+  })
+})
 
 describe("renderNotFoundPage", () => {
   it("tells the visitor the link was not found", () => {
