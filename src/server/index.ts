@@ -169,6 +169,75 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
       )
     }),
   ),
+  HttpRouter.post(
+    "/:token/:page",
+    Effect.gen(function* () {
+      const params = yield* HttpRouter.params
+      const token = params["token"] ?? ""
+      const page = Number(params["page"])
+      const req = yield* HttpServerRequest.HttpServerRequest
+      const bodyText = yield* req.text
+      const body = new URLSearchParams(bodyText)
+      const action = body.get("action") === "prev" ? "prev" : "next"
+      const ratingRaw = Number(body.get("rating"))
+      const rating =
+        Number.isInteger(ratingRaw) && ratingRaw >= 1 && ratingRaw <= 5
+          ? ratingRaw
+          : null
+      const comment = body.get("comment") || null
+
+      const state = yield* Survey.getSurveyState(token)
+      if (!state) {
+        return htmlResponse(SurveyViews.renderNotFoundPage().__html, 404)
+      }
+      if (state.scientist.submitted_at) {
+        return yield* HttpServerResponse.redirect(`/s/${token}`, {
+          status: 303,
+        })
+      }
+      const total = state.papers.length
+      if (!Number.isInteger(page) || page < 1 || page > total) {
+        return yield* HttpServerResponse.redirect(`/s/${token}`, {
+          status: 303,
+        })
+      }
+      const paper = state.papers[page - 1]!
+
+      if (action === "next" && rating === null) {
+        return htmlResponse(
+          SurveyViews.renderPaperPage({
+            token,
+            page,
+            total,
+            paper,
+            rating: null,
+            comment,
+            error: true,
+          }).__html,
+          422,
+        )
+      }
+
+      if (rating !== null) {
+        yield* Survey.answerPaper(token, paper.id, rating, comment)
+      }
+
+      if (action === "prev") {
+        return yield* HttpServerResponse.redirect(`/s/${token}/${page - 1}`, {
+          status: 303,
+        })
+      }
+      if (page === total) {
+        yield* Survey.submitSurvey(token)
+        return yield* HttpServerResponse.redirect(`/s/${token}`, {
+          status: 303,
+        })
+      }
+      return yield* HttpServerResponse.redirect(`/s/${token}/${page + 1}`, {
+        status: 303,
+      })
+    }),
+  ),
 )
 
 // ---------------------------------------------------------------------------
