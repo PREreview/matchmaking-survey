@@ -14,8 +14,13 @@ import { fileURLToPath } from "node:url"
 import * as Admin from "./routes/admin.js"
 import * as Survey from "./routes/survey.js"
 import * as Db from "./db.js"
+import * as SurveyViews from "./views/survey.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+function htmlResponse(html: string, status = 200) {
+  return HttpServerResponse.text(html, { contentType: "text/html", status })
+}
 
 // ---------------------------------------------------------------------------
 // Admin auth middleware
@@ -100,6 +105,68 @@ const surveyRouter = HttpRouter.empty.pipe(
         return yield* HttpServerResponse.json(result, { status })
       }
       return yield* HttpServerResponse.json(result)
+    }),
+  ),
+)
+
+// ---------------------------------------------------------------------------
+// Survey pages  /s/:token, /s/:token/:page  (server-rendered, no client JS)
+// ---------------------------------------------------------------------------
+
+const surveyPagesRouter = HttpRouter.empty.pipe(
+  HttpRouter.get(
+    "/:token",
+    Effect.gen(function* () {
+      const params = yield* HttpRouter.params
+      const token = params["token"] ?? ""
+      const state = yield* Survey.getSurveyState(token)
+      if (!state) {
+        return htmlResponse(SurveyViews.renderNotFoundPage().__html, 404)
+      }
+      if (state.scientist.submitted_at) {
+        return htmlResponse(SurveyViews.renderThankYouPage().__html)
+      }
+      return htmlResponse(
+        SurveyViews.renderIntroPage({ token, paperCount: state.papers.length })
+          .__html,
+      )
+    }),
+  ),
+  HttpRouter.get(
+    "/:token/:page",
+    Effect.gen(function* () {
+      const params = yield* HttpRouter.params
+      const token = params["token"] ?? ""
+      const page = Number(params["page"])
+      const state = yield* Survey.getSurveyState(token)
+      if (!state) {
+        return htmlResponse(SurveyViews.renderNotFoundPage().__html, 404)
+      }
+      if (state.scientist.submitted_at) {
+        return yield* HttpServerResponse.redirect(`/s/${token}`, {
+          status: 303,
+        })
+      }
+      const total = state.papers.length
+      if (!Number.isInteger(page) || page < 1 || page > total) {
+        return yield* HttpServerResponse.redirect(`/s/${token}`, {
+          status: 303,
+        })
+      }
+      const paper = state.papers[page - 1]!
+      const response =
+        state.responses.find((r) => r.paper_id === paper.id) ?? null
+      return htmlResponse(
+        SurveyViews.renderPaperPage({
+          token,
+          page,
+          total,
+          paper,
+          rating: response?.rating ?? null,
+          comment: response?.comment ?? null,
+          error: false,
+        }).__html,
+      )
     }),
   ),
 )
@@ -224,6 +291,7 @@ function serveStatic(urlPath: string) {
 export const app = HttpRouter.empty.pipe(
   HttpRouter.mount("/api/s", surveyRouter),
   HttpRouter.mount("/api/admin", adminRouter),
+  HttpRouter.mount("/s", surveyPagesRouter),
   HttpRouter.get(
     "/admin",
     Effect.gen(function* () {
