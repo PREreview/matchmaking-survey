@@ -1,3 +1,4 @@
 [tools]
+hivemind = "latest"
 node = "lts"
 pnpm = "latest"

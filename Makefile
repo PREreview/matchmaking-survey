@@ -1,6 +1,16 @@
 IMAGE := match-feedback-survey
 DATA  := $(PWD)/data
 
+.PHONY: dev
+dev: node_modules .env
+	hivemind
+
+.env:
+	cp .env.example .env
+
+node_modules: package.json pnpm-lock.yaml pnpm-workspace.yaml
+	pnpm install --frozen-lockfile
+
 .PHONY: prod
 prod:
 	docker build -t $(IMAGE) .
@@ -15,7 +25,7 @@ clear:
 	rm -rf data/
 
 .PHONY: check
-check:
+check: node_modules
 	pnpm lint
 	pnpm typecheck
 	pnpm test
