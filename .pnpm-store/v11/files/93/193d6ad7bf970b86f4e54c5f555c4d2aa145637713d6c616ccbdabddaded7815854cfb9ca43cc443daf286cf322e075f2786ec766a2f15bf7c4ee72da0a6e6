@@ -1,6 +1,0 @@
-{
-  "sideEffects": [],
-  "main": "../dist/cjs/SqliteClient.js",
-  "module": "../dist/esm/SqliteClient.js",
-  "types": "../dist/dts/SqliteClient.d.ts"
-}

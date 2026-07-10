@@ -1,7 +1,0 @@
-export declare class ReactQuestionFactory {
-    static Instance: ReactQuestionFactory;
-    private creatorHash;
-    registerQuestion(questionType: string, questionCreator: (name: string) => React.JSX.Element): void;
-    getAllTypes(): Array<string>;
-    createQuestion(questionType: string, params: any): React.JSX.Element | null;
-}

@@ -1,6 +1,0 @@
-{
-  "sideEffects": [],
-  "main": "../dist/cjs/SqliteMigrator.js",
-  "module": "../dist/esm/SqliteMigrator.js",
-  "types": "../dist/dts/SqliteMigrator.d.ts"
-}

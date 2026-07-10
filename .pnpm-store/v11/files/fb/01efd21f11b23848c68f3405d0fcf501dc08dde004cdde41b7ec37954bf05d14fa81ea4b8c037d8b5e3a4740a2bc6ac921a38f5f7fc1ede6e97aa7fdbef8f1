@@ -1,6 +1,0 @@
-{
-  "sideEffects": [],
-  "main": "../dist/cjs/NodeClusterHttp.js",
-  "module": "../dist/esm/NodeClusterHttp.js",
-  "types": "../dist/dts/NodeClusterHttp.d.ts"
-}
