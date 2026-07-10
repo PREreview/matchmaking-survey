@@ -3,10 +3,10 @@ import { expect, test } from "@playwright/test";
 const FIXTURE_CSV = new URL("./fixtures/example.csv", import.meta.url).pathname;
 
 async function answerCurrentPage(page: import("@playwright/test").Page) {
-  await page.locator('.sd-rating__item-text[data-text="5"]').click();
-  const completeBtn = page.getByRole("button", { name: "Complete" });
-  if (await completeBtn.isVisible()) {
-    await completeBtn.click();
+  await page.locator('input[name="rating"][value="5"]').check();
+  const submitBtn = page.getByRole("button", { name: "Submit" });
+  if (await submitBtn.isVisible()) {
+    await submitBtn.click();
     return true;
   }
   await page.getByRole("button", { name: "Next" }).click();
@@ -34,7 +34,7 @@ test("admin uploads a csv, a scientist completes the survey, admin downloads res
   await expect(
     page.getByRole("heading", { name: "PREreview matchmaking survey" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Begin" }).click();
+  await page.getByRole("link", { name: "Begin" }).click();
 
   let done = false;
   while (!done) {
