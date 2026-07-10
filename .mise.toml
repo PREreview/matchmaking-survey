@@ -1,5 +1,4 @@
 [tools]
-hivemind = "latest"
 pnpm = "10"
 
 [settings]

@@ -3,7 +3,8 @@ DATA  := $(PWD)/data
 
 .PHONY: dev
 dev: node_modules .env
-	hivemind
+	mkdir -p data
+	export $$(grep -v '^#' .env | xargs) && pnpm dev:server
 
 .env:
 	cp .env.example .env
