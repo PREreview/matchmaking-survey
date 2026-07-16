@@ -1,6 +1,4 @@
-import { html, layout, raw } from "./html.js";
-
-const MAIN_STYLE = "max-width:800px;margin:0 auto;padding:1rem;";
+import { html, layout, raw, type Html } from "./html.js";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Not interesting",
@@ -12,10 +10,22 @@ const RATING_LABELS: Record<number, string> = {
 
 const RATING_ERROR = "Select how interesting this preprint looks to you";
 
+function renderProgressTrack(page: number, total: number): Html {
+  const items: Html[] = [];
+  for (let step = 1; step <= total; step++) {
+    if (step > 1) {
+      items.push(html`<span class="segment${step <= page ? " done" : ""}"></span>`);
+    }
+    const state = step < page ? " done" : step === page ? " current" : "";
+    items.push(html`<span class="dot${state}"></span>`);
+  }
+  return html`<div class="progress-track" aria-hidden="true">${items}</div>`;
+}
+
 export function renderLandingPage() {
   return layout({
     title: "PREreview matchmaking survey",
-    body: html`<main style="${MAIN_STYLE}text-align:center;">
+    body: html`<main class="survey survey-center">
       <p>Please use the link provided to you to access your survey.</p>
     </main>`,
   });
@@ -24,7 +34,7 @@ export function renderLandingPage() {
 export function renderNotFoundPage() {
   return layout({
     title: "Survey not found — PREreview",
-    body: html`<main style="${MAIN_STYLE}">
+    body: html`<main class="survey">
       <p>Survey link not found. Please check your email.</p>
     </main>`,
   });
@@ -33,7 +43,7 @@ export function renderNotFoundPage() {
 export function renderThankYouPage() {
   return layout({
     title: "Thank you — PREreview matchmaking survey",
-    body: html`<main style="${MAIN_STYLE}text-align:center;">
+    body: html`<main class="survey survey-center">
       <h1>Thank you for helping us improve matchmaking!</h1>
       <p>
         If you have any comments or questions you can always reach us at
@@ -46,7 +56,7 @@ export function renderThankYouPage() {
 export function renderIntroPage({ token, paperCount }: { token: string; paperCount: number }) {
   return layout({
     title: "PREreview matchmaking survey",
-    body: html`<main style="${MAIN_STYLE}">
+    body: html`<main class="survey">
       <h1>PREreview matchmaking survey</h1>
       <p>Thank you for joining our experiment. This will be quick.</p>
       <p>
@@ -85,7 +95,6 @@ export function renderPaperPage({
   comment: string | null;
   error: boolean;
 }) {
-  const progressPercent = Math.round((page / total) * 100);
   const isLast = page === total;
 
   const errorSummary = error
@@ -117,39 +126,41 @@ export function renderPaperPage({
         required
         ${rating === n ? raw("checked") : raw("")}
       />
-      <label for="rating-${n}">${n} – ${RATING_LABELS[n]}</label>
+      <label for="rating-${n}"
+        ><span aria-hidden="true">${n}</span
+        ><span class="visually-hidden">${n} – ${RATING_LABELS[n]}</span></label
+      >
     </div>`,
   );
 
   return layout({
     title: `Paper ${page} of ${total} — PREreview matchmaking survey`,
-    body: html`<main style="${MAIN_STYLE}">
-      <p>Page ${page} of ${total}</p>
-      <div
-        style="background:#e9ecef;height:0.5rem;border-radius:99px;margin-bottom:1rem;"
-      >
-        <div
-          style="background:#0d6efd;height:100%;border-radius:99px;width:${progressPercent}%;"
-        ></div>
-      </div>
+    body: html`<main class="survey">
+      ${renderProgressTrack(page, total)}
+      <p class="page-indicator">Page ${page} of ${total}</p>
       ${errorSummary}
       <h1>${paper.title}</h1>
       <p>${paper.abstract}</p>
       <form method="post" action="/s/${token}/${page}">
-        <fieldset${error ? raw(' aria-describedby="rating-error"') : raw("")}>
-          <legend>Does this look interesting to you?</legend>
+        <fieldset class="card" ${error ? raw(' aria-describedby="rating-error"') : raw("")}>
+          <legend>
+            Does this look interesting to you? <span class="required" aria-hidden="true">*</span>
+          </legend>
           ${fieldError}
-          ${ratingOptions}
+          <div class="rating-scale">
+            <span class="rating-scale-endpoint" aria-hidden="true">Not interesting</span>
+            <div class="rating-options">${ratingOptions}</div>
+            <span class="rating-scale-endpoint" aria-hidden="true">Extremely interesting</span>
+          </div>
         </fieldset>
-        <p>
-          <label for="comment"
+        <div class="card">
+          <label class="comment-label" for="comment"
             >Any comments about this match or your rating? (optional)</label
           >
-          <br />
           <textarea id="comment" name="comment" rows="4" cols="60">${comment ?? ""}</textarea>
-        </p>
-        ${
-          page > 1
+        </div>
+        <div class="actions">
+          ${page > 1
             ? html`<button
                 class="button button-secondary"
                 type="submit"
@@ -159,9 +170,11 @@ export function renderPaperPage({
               >
                 Previous
               </button>`
-            : raw("")
-        }
-        <button class="button" type="submit" name="action" value="next">${isLast ? "Submit" : "Next"}</button>
+            : raw("")}
+          <button class="button" type="submit" name="action" value="next">
+            ${isLast ? "Submit" : "Next"}
+          </button>
+        </div>
       </form>
     </main>`,
   });

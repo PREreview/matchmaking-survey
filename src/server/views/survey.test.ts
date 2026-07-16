@@ -7,7 +7,11 @@ import {
   renderThankYouPage,
 } from "./survey.js";
 
-const paper = { id: 42, title: "A Neat Paper", abstract: "It is about neat things." };
+const paper = {
+  id: 42,
+  title: "A Neat Paper",
+  abstract: "It is about neat things.",
+};
 
 describe("renderLandingPage", () => {
   it("tells visitors to use their link", () => {
@@ -134,8 +138,8 @@ describe("renderPaperPage", () => {
   it("labels the submit button Next before the last page, Submit on the last page", () => {
     const middle = renderPaperPage({ ...base, page: 2, total: 5 }).__html;
     const last = renderPaperPage({ ...base, page: 5, total: 5 }).__html;
-    expect(middle).toContain(">Next<");
-    expect(last).toContain(">Submit<");
+    expect(middle).toContain("Next");
+    expect(last).toContain("Submit");
   });
 
   it("renders no error summary when there is no error", () => {
@@ -144,7 +148,11 @@ describe("renderPaperPage", () => {
   });
 
   it("renders an error summary and inline field error when rating is missing", () => {
-    const result = renderPaperPage({ ...base, error: true, comment: "kept" }).__html;
+    const result = renderPaperPage({
+      ...base,
+      error: true,
+      comment: "kept",
+    }).__html;
     expect(result).toMatch(/<div\s+class="error-summary"/);
     expect(result).toContain("There is a problem");
     expect(result).toContain("kept");
