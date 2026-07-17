@@ -9,6 +9,6 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm build
+RUN pnpm exec esbuild src/server/index.ts --bundle --platform=node --outfile=dist/server/index.js --format=esm --packages=external
 
 CMD ["pnpm", "exec", "playwright", "test"]

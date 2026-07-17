@@ -7,11 +7,10 @@ RUN npm install -g pnpm
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig*.json vite.config.ts ./
+COPY tsconfig*.json ./
 COPY src ./src
 
-RUN pnpm build:client
-RUN pnpm build:server
+RUN pnpm exec esbuild src/server/index.ts --bundle --platform=node --outfile=dist/server/index.js --format=esm --packages=external
 
 # ---------------------------------------------------------------------------
 

@@ -1,12 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "unicorn",
-    "oxc",
-    "react",
-    "vitest"
-  ],
+  "plugins": ["typescript", "unicorn", "oxc", "vitest"],
   "categories": {
     "correctness": "error"
   },
@@ -14,11 +8,5 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": [
-    "dist",
-    "data",
-    "node_modules",
-    ".pnpm-store",
-    "e2e/fixtures"
-  ]
+  "ignorePatterns": ["dist", "data", "node_modules", ".pnpm-store", "e2e/fixtures"]
 }
