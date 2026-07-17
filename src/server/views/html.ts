@@ -143,21 +143,26 @@ const BASE_CSS = `
     color: #d4351c;
   }
   .survey .rating-scale {
+    max-width: 30rem;
+    margin-inline: auto;
+  }
+  .survey .rating-scale-labels {
     display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 1.25rem;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 3rem;
   }
   .survey .rating-scale-endpoint {
     color: #868e96;
-    flex: 0 0 auto;
+  }
+  .survey .rating-scale-endpoint:last-child {
+    text-align: right;
   }
   .survey .rating-options {
     display: flex;
     gap: 0.75rem;
-    flex: 1 1 auto;
-    justify-content: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
   }
   .survey .rating-option {
     position: relative;
@@ -185,6 +190,9 @@ const BASE_CSS = `
     color: #343a40;
     background: #fff;
     cursor: pointer;
+  }
+  .survey .rating-option input:hover + label {
+    border-width: 3px;
   }
   .survey .rating-option input:checked + label {
     background: #0d9488;

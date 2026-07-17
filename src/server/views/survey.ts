@@ -148,9 +148,11 @@ export function renderPaperPage({
           </legend>
           ${fieldError}
           <div class="rating-scale">
-            <span class="rating-scale-endpoint" aria-hidden="true">Not interesting</span>
+            <div class="rating-scale-labels">
+              <span class="rating-scale-endpoint" aria-hidden="true">Not interesting</span>
+              <span class="rating-scale-endpoint" aria-hidden="true">Extremely interesting</span>
+            </div>
             <div class="rating-options">${ratingOptions}</div>
-            <span class="rating-scale-endpoint" aria-hidden="true">Extremely interesting</span>
           </div>
         </fieldset>
         <div class="card">
