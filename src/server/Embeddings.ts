@@ -16,5 +16,14 @@ export class Embeddings extends Context.Tag("Embeddings")<
 >() {}
 
 export const embeddingsLayer = Layer.succeed(Embeddings, {
-  getSurveyPapers: () => new UnableToGetSurveyPapers({ cause: "not implemented" }),
+  getSurveyPapers: Effect.fnUntraced(function* (input) {
+    // dependencies: postgres, openrouter
+
+    // get embedding for each paper (generating where needed)
+    // derive mean
+    // get top 500
+    // return 7 top, 4 mid and 4 random
+
+    return yield* new UnableToGetSurveyPapers({ cause: "not implemented" });
+  }),
 });
