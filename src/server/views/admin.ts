@@ -39,11 +39,7 @@ function renderScientistRow(origin: string, scientist: Scientist) {
   </tr>`;
 }
 
-function renderBatch(
-  origin: string,
-  batch: Batch,
-  highlightBatchId: number | null,
-) {
+function renderBatch(origin: string, batch: Batch, highlightBatchId: number | null) {
   const links = batch.scientists
     .map((s) => `${s.name}\t${s.orcid}\t${origin}/s/${s.token}`)
     .join("\n");
@@ -54,8 +50,7 @@ function renderBatch(
     ${isHighlighted ? raw("open") : raw("")}
   >
     <summary>
-      Batch #${batch.id} — ${batch.uploaded_at} — ${batch.scientists.length}
-      scientists
+      Batch #${batch.id} — ${batch.uploaded_at} — ${batch.scientists.length} scientists
     </summary>
     <div style="margin-top:0.75rem;">
       ${isHighlighted
@@ -64,23 +59,14 @@ function renderBatch(
           </p>`
         : raw("")}
       <label for="links-${batch.id}"
-        >Survey links for this batch (name, orcid, then url, one per
-        line)</label
+        >Survey links for this batch (name, orcid, then url, one per line)</label
       >
       <br />
-      <textarea id="links-${batch.id}" readonly rows="3" style="width:100%;">
-${links}</textarea
-      >
-      <button
-        class="button-secondary button"
-        type="button"
-        data-copy-target="links-${batch.id}"
-      >
+      <textarea id="links-${batch.id}" readonly rows="3" style="width:100%;">${links}</textarea>
+      <button class="button-secondary button" type="button" data-copy-target="links-${batch.id}">
         Copy all links
       </button>
-      <table
-        style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.75rem;"
-      >
+      <table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.75rem;">
         <thead>
           <tr>
             <th style="text-align:left;">Name</th>
@@ -157,20 +143,10 @@ export function renderAdminPage({
       <div style="${SECTION_STYLE}">
         <h2>Upload CSV</h2>
         <p>Expected columns: <code>name, orcid, title, abstract, doi</code></p>
-        <form
-          method="post"
-          action="/admin/upload"
-          enctype="multipart/form-data"
-        >
+        <form method="post" action="/admin/upload" enctype="multipart/form-data">
           <label for="csv-file">CSV file</label>
           <br />
-          <input
-            id="csv-file"
-            type="file"
-            name="csv"
-            accept=".csv,text/csv,text/plain"
-            required
-          />
+          <input id="csv-file" type="file" name="csv" accept=".csv,text/csv,text/plain" required />
           <button class="button" type="submit">Upload</button>
         </form>
       </div>
@@ -183,9 +159,7 @@ export function renderAdminPage({
         : raw("")}
       <div style="${SECTION_STYLE}">
         <h2>Export</h2>
-        <a class="button-link" href="/admin/export.csv"
-          >Download responses.csv</a
-        >
+        <a class="button-link" href="/admin/export.csv">Download responses.csv</a>
       </div>
       <script>
         ${raw(COPY_SCRIPT)};
