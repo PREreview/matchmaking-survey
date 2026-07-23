@@ -72,6 +72,19 @@ describe("answerPaper", () => {
     expect(result[0].comment).toBe("Nice work");
   });
 
+  it("saves a Not sure response as rating 0", async () => {
+    const result = await run(
+      seed.pipe(
+        Effect.andThen(({ scientist, papers }) =>
+          Survey.answerPaper("test-token", papers[0].id, 0).pipe(
+            Effect.andThen(() => Db.listResponsesForScientist(scientist.id)),
+          ),
+        ),
+      ),
+    );
+    expect(result[0].rating).toBe(0);
+  });
+
   it("returns not_found for an unknown token", async () => {
     const result = await run(Survey.answerPaper("no-token", 1, 3));
     expect(result).toEqual({ ok: false, error: "not_found" });

@@ -1,3 +1,4 @@
+import { SqlClient } from "@effect/sql";
 import { SqliteClient } from "@effect/sql-sqlite-node";
 import { Effect } from "effect";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -172,6 +173,47 @@ describe("papers", () => {
   });
 });
 
+describe("migrate", () => {
+  it("rebuilds a responses table created under the old 1-5 CHECK constraint", async () => {
+    const responses = await Effect.runPromise(
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        yield* Db.migrate;
+        const batch = yield* Db.createBatch;
+        const scientist = yield* Db.insertScientist(batch.id, "0000-0001-2345-6789", "tok-migrate");
+        const paperA = yield* Db.insertPaper(scientist.id, "10.1/mig-a", "Paper A", "Abstract.", 0);
+
+        // Simulate a database created before rating 0 ("Not sure") was supported.
+        yield* sql`DROP TABLE responses`;
+        yield* sql`
+          CREATE TABLE responses (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            scientist_id INTEGER NOT NULL REFERENCES scientists(id),
+            paper_id     INTEGER NOT NULL REFERENCES papers(id),
+            rating       INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+            comment      TEXT,
+            answered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+            UNIQUE (scientist_id, paper_id)
+          )
+        `;
+        yield* sql`
+          INSERT INTO responses (scientist_id, paper_id, rating)
+          VALUES (${scientist.id}, ${paperA.id}, 4)
+        `;
+
+        yield* Db.migrate;
+
+        const paperB = yield* Db.insertPaper(scientist.id, "10.1/mig-b", "Paper B", "Abstract.", 1);
+        yield* Db.upsertResponse(scientist.id, paperB.id, 0);
+        return yield* Db.listResponsesForScientist(scientist.id);
+      }).pipe(Effect.provide(layer)),
+    );
+    expect(responses).toHaveLength(2);
+    expect(responses.find((r) => r.rating === 4)).toBeTruthy();
+    expect(responses.find((r) => r.rating === 0)).toBeTruthy();
+  });
+});
+
 describe("responses", () => {
   const withScientistAndPaper = <A>(
     f: (ids: { scientistId: number; paperId: number }) => Effect.Effect<A, unknown, Db.DbClient>,
@@ -208,6 +250,28 @@ describe("responses", () => {
     );
     expect(responses).toHaveLength(1);
     expect(responses[0].comment).toBe("Great paper!");
+  });
+
+  it("upserts a Not sure response as rating 0", async () => {
+    const responses = await run(
+      withScientistAndPaper(({ scientistId, paperId }) =>
+        Db.upsertResponse(scientistId, paperId, 0).pipe(
+          Effect.andThen(() => Db.listResponsesForScientist(scientistId)),
+        ),
+      ),
+    );
+    expect(responses).toHaveLength(1);
+    expect(responses[0].rating).toBe(0);
+  });
+
+  it("rejects a rating outside 0-5", async () => {
+    await expect(
+      run(
+        withScientistAndPaper(({ scientistId, paperId }) =>
+          Db.upsertResponse(scientistId, paperId, 6),
+        ),
+      ),
+    ).rejects.toBeTruthy();
   });
 
   it("updates an existing response on re-answer", async () => {

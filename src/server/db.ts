@@ -81,7 +81,7 @@ export const migrate = Effect.gen(function* () {
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       scientist_id INTEGER NOT NULL REFERENCES scientists(id),
       paper_id     INTEGER NOT NULL REFERENCES papers(id),
-      rating       INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+      rating       INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5),
       comment      TEXT,
       answered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
       UNIQUE (scientist_id, paper_id)
@@ -90,6 +90,31 @@ export const migrate = Effect.gen(function* () {
   const responseColumns = yield* sql<{ name: string }>`PRAGMA table_info(responses)`;
   if (!responseColumns.some((c) => c.name === "comment")) {
     yield* sql`ALTER TABLE responses ADD COLUMN comment TEXT`;
+  }
+
+  // SQLite can't ALTER a CHECK constraint in place, so a table created before
+  // rating 0 ("not sure") was introduced needs rebuilding onto the new schema.
+  const responsesSchema = yield* sql<{ sql: string }>`
+    SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'responses'
+  `;
+  if (responsesSchema[0]?.sql.includes("rating >= 1")) {
+    yield* sql`ALTER TABLE responses RENAME TO responses_old`;
+    yield* sql`
+      CREATE TABLE responses (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        scientist_id INTEGER NOT NULL REFERENCES scientists(id),
+        paper_id     INTEGER NOT NULL REFERENCES papers(id),
+        rating       INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5),
+        comment      TEXT,
+        answered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (scientist_id, paper_id)
+      )
+    `;
+    yield* sql`
+      INSERT INTO responses (id, scientist_id, paper_id, rating, comment, answered_at)
+      SELECT id, scientist_id, paper_id, rating, comment, answered_at FROM responses_old
+    `;
+    yield* sql`DROP TABLE responses_old`;
   }
 });
 
@@ -194,6 +219,7 @@ export const listResponsesForScientist = (scientistId: number) =>
     `;
   });
 
+// rating is 1-5, or 0 for "Not sure" — exclude 0 before averaging or charting.
 export const exportResponses = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   return yield* sql<ExportRow>`

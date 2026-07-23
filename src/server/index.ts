@@ -131,7 +131,7 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
       const action = body.get("action") === "prev" ? "prev" : "next";
       const ratingRaw = Number(body.get("rating"));
       const rating =
-        Number.isInteger(ratingRaw) && ratingRaw >= 1 && ratingRaw <= 5 ? ratingRaw : null;
+        Number.isInteger(ratingRaw) && ratingRaw >= 0 && ratingRaw <= 5 ? ratingRaw : null;
       const comment = body.get("comment") || null;
 
       const state = yield* Survey.getSurveyState(token);

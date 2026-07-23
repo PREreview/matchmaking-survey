@@ -192,7 +192,7 @@ const BASE_CSS = `
     cursor: pointer;
   }
   .survey .rating-option input:hover + label {
-    border-width: 3px;
+    border-color: #0d9488;
   }
   .survey .rating-option input:checked + label {
     background: #0d9488;
@@ -202,6 +202,33 @@ const BASE_CSS = `
   .survey .rating-option input:focus-visible + label {
     outline: 3px solid #0d6efd;
     outline-offset: 2px;
+  }
+  .survey .rating-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #868e96;
+    font-size: 0.85rem;
+    margin: 1.5rem 0;
+  }
+  .survey .rating-divider::before,
+  .survey .rating-divider::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: #e9ecef;
+  }
+  .survey .rating-option-unsure {
+    width: auto;
+    height: auto;
+    display: flex;
+    justify-content: center;
+  }
+  .survey .rating-option-unsure label {
+    width: auto;
+    height: auto;
+    border-radius: 999px;
+    padding: 0.5rem 1.25rem;
   }
   .survey .comment-label {
     display: block;

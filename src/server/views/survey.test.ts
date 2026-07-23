@@ -115,6 +115,19 @@ describe("renderPaperPage", () => {
     }
   });
 
+  it("offers a Not sure option separate from the numbered scale", () => {
+    const result = renderPaperPage(base).__html;
+    expect(result).toContain('id="rating-0"');
+    expect(result).toContain('for="rating-0"');
+    expect(result).toContain('value="0"');
+    expect(result).toContain("Not sure");
+  });
+
+  it("pre-checks rating 0 when Not sure was previously saved", () => {
+    const result = renderPaperPage({ ...base, rating: 0 }).__html;
+    expect(result).toMatch(/id="rating-0"[^>]*checked/);
+  });
+
   it("groups the rating options in a labelled fieldset", () => {
     const result = renderPaperPage(base).__html;
     expect(result).toMatch(/<fieldset[^>]*>[\s\S]*<legend/);

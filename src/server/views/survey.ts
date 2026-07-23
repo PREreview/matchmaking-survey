@@ -8,6 +8,8 @@ const RATING_LABELS: Record<number, string> = {
   5: "Extremely interesting",
 };
 
+const RATING_UNSURE_LABEL = "Not sure";
+
 const RATING_ERROR = "Select how interesting this preprint looks to you";
 
 function renderProgressTrack(page: number, total: number): Html {
@@ -133,6 +135,18 @@ export function renderPaperPage({
     </div>`,
   );
 
+  const unsureOption = html`<div class="rating-option rating-option-unsure">
+    <input
+      type="radio"
+      id="rating-0"
+      name="rating"
+      value="0"
+      required
+      ${rating === 0 ? raw("checked") : raw("")}
+    />
+    <label for="rating-0">${RATING_UNSURE_LABEL}</label>
+  </div>`;
+
   return layout({
     title: `Paper ${page} of ${total} — PREreview matchmaking survey`,
     body: html`<main class="survey">
@@ -153,6 +167,8 @@ export function renderPaperPage({
               <span class="rating-scale-endpoint" aria-hidden="true">Extremely interesting</span>
             </div>
             <div class="rating-options">${ratingOptions}</div>
+            <div class="rating-divider" aria-hidden="true"><span>or</span></div>
+            ${unsureOption}
           </div>
         </fieldset>
         <div class="card">
