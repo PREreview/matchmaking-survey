@@ -1,4 +1,5 @@
 import {
+  FileSystem,
   HttpMiddleware,
   HttpRouter,
   HttpServer,
@@ -6,8 +7,8 @@ import {
   HttpServerResponse,
   UrlParams,
 } from "@effect/platform";
-import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Schema, Chunk, pipe, Effect, Layer, Stream } from "effect";
+import { NodeContext, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { Schema, pipe, Effect, Layer } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
 import * as Survey from "./routes/survey.js";
@@ -242,15 +243,14 @@ const adminPagesRouter = HttpRouter.empty
       "/upload",
       Effect.gen(function* () {
         const req = yield* HttpServerRequest.HttpServerRequest;
-        const parts = yield* Stream.runCollect(req.multipartStream);
-        const filePart = Chunk.toReadonlyArray(parts).find(
-          (p) => p._tag === "File" && p.key === "csv",
-        );
-        if (!filePart || filePart._tag !== "File") {
+        const fs = yield* FileSystem.FileSystem;
+        const parts = yield* req.multipart;
+        const filePart = parts["csv"];
+        const file = Array.isArray(filePart) ? filePart[0] : filePart;
+        if (!file || typeof file === "string") {
           return htmlResponse("Missing csv file", 400);
         }
-        const bytes = yield* filePart.contentEffect;
-        const csvText = new TextDecoder().decode(bytes);
+        const csvText = yield* fs.readFileString(file.path);
         const result = yield* Admin.importCsv(csvText);
         return yield* HttpServerResponse.redirect(`/admin?batch=${result.batchId}`, {
           status: 303,
@@ -354,6 +354,7 @@ const ServerLive = app.pipe(
   HttpServer.withLogAddress,
   Layer.provide([
     NodeHttpServer.layer(createServer, { port }),
+    NodeContext.layer,
     embeddingsLayer,
     openAlexLayer,
     orcidLayer,
