@@ -83,10 +83,11 @@ const BASE_CSS = `
     text-align: center;
   }
   .survey h1 {
-    font-size: 2.25rem;
+    font-size: clamp(1.25rem, 0.85rem + 2vw, 2rem);
     font-weight: 800;
     line-height: 1.2;
     margin: 1.5rem 0 1rem;
+    text-wrap: balance;
   }
   .survey > p {
     color: #495057;
