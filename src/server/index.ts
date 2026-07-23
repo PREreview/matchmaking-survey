@@ -14,6 +14,7 @@ import * as Survey from "./routes/survey.js";
 import * as Db from "./db.js";
 import * as SurveyViews from "./views/survey.js";
 import * as AdminViews from "./views/admin.js";
+import { embeddingsLayer } from "./Embeddings.js";
 
 function htmlResponse(html: string, status = 200) {
   return HttpServerResponse.text(html, { contentType: "text/html", status });
@@ -349,7 +350,7 @@ const dbFile = process.env.DB_FILE ?? "/data/survey.db";
 const ServerLive = app.pipe(
   HttpServer.serve(HttpMiddleware.logger),
   HttpServer.withLogAddress,
-  Layer.provide(NodeHttpServer.layer(createServer, { port })),
+  Layer.provide([NodeHttpServer.layer(createServer, { port }), embeddingsLayer]),
 );
 
 const main = Db.migrate.pipe(
