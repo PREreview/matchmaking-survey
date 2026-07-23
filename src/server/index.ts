@@ -228,6 +228,7 @@ const adminPagesRouter = HttpRouter.empty
             ),
           ),
         );
+        yield* Admin.createSurvey(orcid["orcid-id"]);
         return HttpServerResponse.unsafeJson(orcid, {
           contentType: "text/html",
         });
