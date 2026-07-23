@@ -228,9 +228,10 @@ const adminPagesRouter = HttpRouter.empty
             ),
           ),
         );
-        yield* Admin.createSurvey(orcid["orcid-id"]);
-        return HttpServerResponse.unsafeJson(orcid, {
-          contentType: "text/html",
+        const batchId = yield* Admin.createSurvey(orcid["orcid-id"]);
+
+        return yield* HttpServerResponse.redirect(`/admin?batch=${batchId}`, {
+          status: 303,
         });
       }),
     ),
