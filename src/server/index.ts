@@ -210,6 +210,7 @@ const adminPagesRouter = HttpRouter.empty
             batches,
             highlightBatchId: batchParam ? Number(batchParam) : null,
             duplicateError: null,
+            missingColumnsError: null,
           }).__html,
         );
       }),
@@ -232,21 +233,38 @@ const adminPagesRouter = HttpRouter.empty
           status: 303,
         });
       }).pipe(
-        Effect.catchTag("DuplicateCsvRowsError", (e) =>
-          Effect.gen(function* () {
-            const req = yield* HttpServerRequest.HttpServerRequest;
-            const batches = yield* listBatchesWithScientists;
-            return htmlResponse(
-              AdminViews.renderAdminPage({
-                origin: getOrigin(req),
-                batches,
-                highlightBatchId: null,
-                duplicateError: e.duplicates,
-              }).__html,
-              400,
-            );
-          }),
-        ),
+        Effect.catchTags({
+          DuplicateCsvRowsError: (e) =>
+            Effect.gen(function* () {
+              const req = yield* HttpServerRequest.HttpServerRequest;
+              const batches = yield* listBatchesWithScientists;
+              return htmlResponse(
+                AdminViews.renderAdminPage({
+                  origin: getOrigin(req),
+                  batches,
+                  highlightBatchId: null,
+                  duplicateError: e.duplicates,
+                  missingColumnsError: null,
+                }).__html,
+                400,
+              );
+            }),
+          MissingCsvColumnsError: (e) =>
+            Effect.gen(function* () {
+              const req = yield* HttpServerRequest.HttpServerRequest;
+              const batches = yield* listBatchesWithScientists;
+              return htmlResponse(
+                AdminViews.renderAdminPage({
+                  origin: getOrigin(req),
+                  batches,
+                  highlightBatchId: null,
+                  duplicateError: null,
+                  missingColumnsError: e.missing,
+                }).__html,
+                400,
+              );
+            }),
+        }),
       ),
     ),
     HttpRouter.get(
@@ -255,6 +273,7 @@ const adminPagesRouter = HttpRouter.empty
         const rows = yield* Admin.getExportRows;
         const header = toCsvLine([
           "batch_uploaded_at",
+          "name",
           "orcid",
           "token",
           "doi",
@@ -267,6 +286,7 @@ const adminPagesRouter = HttpRouter.empty
         const lines = rows.map((r) =>
           toCsvLine([
             r.batch_uploaded_at,
+            r.name,
             r.orcid,
             r.token,
             r.doi,

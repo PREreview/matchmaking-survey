@@ -13,10 +13,10 @@ beforeEach(() => {
 const run = <A>(effect: Effect.Effect<A, unknown, Db.DbClient>) =>
   Effect.runPromise(Db.migrate.pipe(Effect.andThen(effect), Effect.provide(layer)));
 
-const csvText = `orcid,title,abstract,doi
-0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha
-0000-0001-1111-1111,Paper Beta,Abstract for beta.,10.1/beta
-0000-0002-2222-2222,Paper Gamma,Abstract for gamma.,10.1/gamma`;
+const csvText = `name,orcid,title,abstract,doi
+Ada Lovelace,0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha
+Ada Lovelace,0000-0001-1111-1111,Paper Beta,Abstract for beta.,10.1/beta
+Grace Hopper,0000-0002-2222-2222,Paper Gamma,Abstract for gamma.,10.1/gamma`;
 
 describe("importCsv", () => {
   it("creates a batch and returns token entries per scientist", async () => {
@@ -55,6 +55,7 @@ describe("importCsv", () => {
       ),
     );
     expect(scientist).not.toBeNull();
+    expect(scientist?.name).toBe("Ada Lovelace");
     expect(papers).toHaveLength(2);
     expect(papers[0].title).toBe("Paper Alpha");
   });
@@ -72,21 +73,50 @@ describe("importCsv", () => {
   });
 
   it("allows the same doi under two different orcids", async () => {
-    const sharedCsv = `orcid,title,abstract,doi
-0000-0001-1111-1111,Shared Paper,Shared abstract.,10.1/shared
-0000-0002-2222-2222,Shared Paper,Shared abstract.,10.1/shared`;
+    const sharedCsv = `name,orcid,title,abstract,doi
+Ada Lovelace,0000-0001-1111-1111,Shared Paper,Shared abstract.,10.1/shared
+Grace Hopper,0000-0002-2222-2222,Shared Paper,Shared abstract.,10.1/shared`;
     const result = await run(Admin.importCsv(sharedCsv));
     expect(result.entries).toHaveLength(2);
     expect(result.entries.every((e) => e.paperCount === 1)).toBe(true);
   });
 
   it("rejects a csv with a duplicate orcid+doi row and writes nothing", async () => {
-    const duplicateCsv = `orcid,title,abstract,doi
-0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha
-0000-0001-1111-1111,Paper Alpha Reprint,Same paper again.,10.1/alpha`;
+    const duplicateCsv = `name,orcid,title,abstract,doi
+Ada Lovelace,0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha
+Ada Lovelace,0000-0001-1111-1111,Paper Alpha Reprint,Same paper again.,10.1/alpha`;
     await expect(run(Admin.importCsv(duplicateCsv))).rejects.toBeTruthy();
     const batches = await run(Db.listBatches);
     expect(batches).toHaveLength(0);
+  });
+
+  it("rejects a csv missing the name column and writes nothing", async () => {
+    const legacyCsv = `orcid,title,abstract,doi
+0000-0001-1111-1111,Paper Alpha,Abstract for alpha.,10.1/alpha`;
+    const result = await run(Effect.either(Admin.importCsv(legacyCsv)));
+    if (result._tag !== "Left" || !(result.left instanceof Admin.MissingCsvColumnsError)) {
+      throw new Error("expected a MissingCsvColumnsError");
+    }
+    expect(result.left.missing).toEqual(["name"]);
+    const batches = await run(Db.listBatches);
+    expect(batches).toHaveLength(0);
+  });
+
+  it("rejects a csv missing multiple columns and reports all of them", async () => {
+    const sparseCsv = `orcid,title
+0000-0001-1111-1111,Paper Alpha`;
+    const result = await run(Effect.either(Admin.importCsv(sparseCsv)));
+    if (result._tag !== "Left" || !(result.left instanceof Admin.MissingCsvColumnsError)) {
+      throw new Error("expected a MissingCsvColumnsError");
+    }
+    expect(result.left.missing).toEqual(["name", "abstract", "doi"]);
+  });
+
+  it("accepts a csv with columns in a different order than documented", async () => {
+    const reorderedCsv = `doi,name,abstract,orcid,title
+10.1/alpha,Ada Lovelace,Abstract for alpha.,0000-0001-1111-1111,Paper Alpha`;
+    const result = await run(Admin.importCsv(reorderedCsv));
+    expect(result.entries).toHaveLength(1);
   });
 });
 
@@ -112,6 +142,7 @@ describe("getExportRows", () => {
       ),
     );
     expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe("Grace Hopper");
     expect(rows[0].orcid).toBe("0000-0002-2222-2222");
     expect(rows[0].rating).toBe(5);
     expect(rows[0].doi).toBe("10.1/gamma");

@@ -33,9 +33,12 @@ describe("scientists", () => {
   it("inserts a scientist linked to a batch", async () => {
     const scientist = await run(
       Db.createBatch.pipe(
-        Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-abc")),
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-abc"),
+        ),
       ),
     );
+    expect(scientist.name).toBe("Test Scientist");
     expect(scientist.orcid).toBe("0000-0001-2345-6789");
     expect(scientist.token).toBe("tok-abc");
     expect(scientist.submitted_at).toBeNull();
@@ -44,7 +47,9 @@ describe("scientists", () => {
   it("looks up a scientist by token", async () => {
     const found = await run(
       Db.createBatch.pipe(
-        Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-xyz")),
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-xyz"),
+        ),
         Effect.andThen(() => Db.getScientistByToken("tok-xyz")),
       ),
     );
@@ -60,7 +65,9 @@ describe("scientists", () => {
   it("marks a scientist as submitted", async () => {
     const found = await run(
       Db.createBatch.pipe(
-        Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-s")),
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-s"),
+        ),
         Effect.andThen((s) =>
           Db.markSubmitted(s.id).pipe(Effect.andThen(() => Db.getScientistByToken("tok-s"))),
         ),
@@ -74,8 +81,8 @@ describe("scientists", () => {
       Db.createBatch.pipe(
         Effect.andThen((b) =>
           Effect.all([
-            Db.insertScientist(b.id, "0000-0001-0000-0001", "tok-1"),
-            Db.insertScientist(b.id, "0000-0001-0000-0002", "tok-2"),
+            Db.insertScientist(b.id, "Test Scientist", "0000-0001-0000-0001", "tok-1"),
+            Db.insertScientist(b.id, "Test Scientist", "0000-0001-0000-0002", "tok-2"),
           ]).pipe(Effect.andThen(() => Db.listScientistsForBatch(b.id))),
         ),
       ),
@@ -88,7 +95,9 @@ describe("papers", () => {
   it("inserts a paper linked to a scientist", async () => {
     const paper = await run(
       Db.createBatch.pipe(
-        Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-p")),
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-p"),
+        ),
         Effect.andThen((s) =>
           Db.insertPaper(s.id, "10.1/great", "A Great Paper", "Abstract here.", 0),
         ),
@@ -102,7 +111,9 @@ describe("papers", () => {
   it("lists papers for a scientist in display_order", async () => {
     const papers = await run(
       Db.createBatch.pipe(
-        Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-pp")),
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-pp"),
+        ),
         Effect.andThen((s) =>
           Effect.all([
             Db.insertPaper(s.id, "10.1/b", "Paper B", "Abstract B.", 1),
@@ -118,7 +129,9 @@ describe("papers", () => {
   it("does not include doi in the survey-facing paper shape", async () => {
     const papers = await run(
       Db.createBatch.pipe(
-        Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-nodoi")),
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-nodoi"),
+        ),
         Effect.andThen((s) =>
           Db.insertPaper(s.id, "10.1/secret", "Paper", "Abstract.", 0).pipe(
             Effect.andThen(() => Db.listPapersForScientist(s.id)),
@@ -135,8 +148,8 @@ describe("papers", () => {
       Db.createBatch.pipe(
         Effect.andThen((b) =>
           Effect.all([
-            Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-share-a"),
-            Db.insertScientist(b.id, "0000-0002-1234-5678", "tok-share-b"),
+            Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-share-a"),
+            Db.insertScientist(b.id, "Test Scientist", "0000-0002-1234-5678", "tok-share-b"),
           ]),
         ),
         Effect.andThen(([a, b]) =>
@@ -159,7 +172,9 @@ describe("papers", () => {
     await expect(
       run(
         Db.createBatch.pipe(
-          Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-dupe")),
+          Effect.andThen((b) =>
+            Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-dupe"),
+          ),
           Effect.andThen((s) =>
             Db.insertPaper(s.id, "10.1/dupe", "Paper", "Abstract.", 0).pipe(
               Effect.andThen(() =>
@@ -180,7 +195,12 @@ describe("migrate", () => {
         const sql = yield* SqlClient.SqlClient;
         yield* Db.migrate;
         const batch = yield* Db.createBatch;
-        const scientist = yield* Db.insertScientist(batch.id, "0000-0001-2345-6789", "tok-migrate");
+        const scientist = yield* Db.insertScientist(
+          batch.id,
+          "Test Scientist",
+          "0000-0001-2345-6789",
+          "tok-migrate",
+        );
         const paperA = yield* Db.insertPaper(scientist.id, "10.1/mig-a", "Paper A", "Abstract.", 0);
 
         // Simulate a database created before rating 0 ("Not sure") was supported.
@@ -219,7 +239,9 @@ describe("responses", () => {
     f: (ids: { scientistId: number; paperId: number }) => Effect.Effect<A, unknown, Db.DbClient>,
   ) =>
     Db.createBatch.pipe(
-      Effect.andThen((b) => Db.insertScientist(b.id, "0000-0001-2345-6789", "tok-r")),
+      Effect.andThen((b) =>
+        Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-r"),
+      ),
       Effect.andThen((s) =>
         Db.insertPaper(s.id, "10.1/response-paper", "Paper", "Abstract.", 0).pipe(
           Effect.andThen((p) => f({ scientistId: s.id, paperId: p.id })),
@@ -297,6 +319,7 @@ describe("responses", () => {
       ),
     );
     expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe("Test Scientist");
     expect(rows[0].orcid).toBe("0000-0001-2345-6789");
     expect(rows[0].title).toBe("Paper");
     expect(rows[0].doi).toBe("10.1/response-paper");

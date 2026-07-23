@@ -2,8 +2,14 @@ import { describe, expect, it } from "vitest";
 import { renderAdminPage } from "./admin.js";
 
 const scientist = (
-  overrides: Partial<{ orcid: string; token: string; submitted_at: string | null }> = {},
+  overrides: Partial<{
+    name: string;
+    orcid: string;
+    token: string;
+    submitted_at: string | null;
+  }> = {},
 ) => ({
+  name: "Ada Lovelace",
   orcid: "0000-0001-1111-1111",
   token: "tok-1",
   submitted_at: null,
@@ -28,6 +34,7 @@ const base = {
   batches: [] as ReturnType<typeof batch>[],
   highlightBatchId: null as number | null,
   duplicateError: null as Array<{ orcid: string; doi: string }> | null,
+  missingColumnsError: null as string[] | null,
 };
 
 describe("renderAdminPage", () => {
@@ -58,6 +65,16 @@ describe("renderAdminPage", () => {
     expect(result).toContain("10.1/alpha");
   });
 
+  it("renders an error summary listing missing csv columns", () => {
+    const result = renderAdminPage({
+      ...base,
+      missingColumnsError: ["name", "doi"],
+    }).__html;
+    expect(result).toMatch(/<div\s+class="error-summary"/);
+    expect(result).toContain("name");
+    expect(result).toContain("doi");
+  });
+
   it("shows a success banner for the highlighted batch", () => {
     const result = renderAdminPage({
       ...base,
@@ -86,15 +103,21 @@ describe("renderAdminPage", () => {
     expect(detailsTag).toMatch(/[\s"]open[\s>]/);
   });
 
-  it("lists each scientist's orcid, status, and survey url", () => {
+  it("lists each scientist's name, orcid, status, and survey url", () => {
     const result = renderAdminPage({
       ...base,
       batches: [
         batch({
           id: 3,
           scientists: [
-            scientist({ orcid: "0000-0001-1111-1111", token: "tok-a", submitted_at: null }),
             scientist({
+              name: "Ada Lovelace",
+              orcid: "0000-0001-1111-1111",
+              token: "tok-a",
+              submitted_at: null,
+            }),
+            scientist({
+              name: "Grace Hopper",
               orcid: "0000-0002-2222-2222",
               token: "tok-b",
               submitted_at: "2026-07-01 00:00:00",
@@ -103,22 +126,29 @@ describe("renderAdminPage", () => {
         }),
       ],
     }).__html;
+    expect(result).toContain("Ada Lovelace");
     expect(result).toContain("0000-0001-1111-1111");
     expect(result).toContain("Pending");
+    expect(result).toContain("Grace Hopper");
     expect(result).toContain("0000-0002-2222-2222");
     expect(result).toContain("Submitted");
     expect(result).toContain("/s/tok-a");
     expect(result).toContain("/s/tok-b");
   });
 
-  it("renders a copy-links textarea with tab-separated orcid and full url per line", () => {
+  it("renders a copy-links textarea with tab-separated name, orcid and full url per line", () => {
     const result = renderAdminPage({
       ...base,
       batches: [
-        batch({ id: 3, scientists: [scientist({ orcid: "0000-0001-1111-1111", token: "tok-a" })] }),
+        batch({
+          id: 3,
+          scientists: [
+            scientist({ name: "Ada Lovelace", orcid: "0000-0001-1111-1111", token: "tok-a" }),
+          ],
+        }),
       ],
     }).__html;
-    expect(result).toContain("0000-0001-1111-1111\thttps://survey.example/s/tok-a");
+    expect(result).toContain("Ada Lovelace\t0000-0001-1111-1111\thttps://survey.example/s/tok-a");
   });
 
   it("wires a copy button to the textarea via data-copy-target", () => {

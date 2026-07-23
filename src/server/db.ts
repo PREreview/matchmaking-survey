@@ -8,6 +8,7 @@ export type Batch = { id: number; uploaded_at: string };
 export type Scientist = {
   id: number;
   batch_id: number;
+  name: string;
   orcid: string;
   token: string;
   submitted_at: string | null;
@@ -36,6 +37,7 @@ export type Response = {
 };
 export type ExportRow = {
   batch_uploaded_at: string;
+  name: string;
   orcid: string;
   token: string;
   doi: string;
@@ -60,11 +62,16 @@ export const migrate = Effect.gen(function* () {
     CREATE TABLE IF NOT EXISTS scientists (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       batch_id     INTEGER NOT NULL REFERENCES batches(id),
+      name         TEXT    NOT NULL DEFAULT '',
       orcid        TEXT    NOT NULL,
       token        TEXT    NOT NULL UNIQUE,
       submitted_at TEXT
     )
   `;
+  const scientistColumns = yield* sql<{ name: string }>`PRAGMA table_info(scientists)`;
+  if (!scientistColumns.some((c) => c.name === "name")) {
+    yield* sql`ALTER TABLE scientists ADD COLUMN name TEXT NOT NULL DEFAULT ''`;
+  }
   yield* sql`
     CREATE TABLE IF NOT EXISTS papers (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,12 +138,12 @@ export const listBatches = Effect.gen(function* () {
   return yield* sql<Batch>`SELECT * FROM batches ORDER BY id DESC`;
 });
 
-export const insertScientist = (batchId: number, orcid: string, token: string) =>
+export const insertScientist = (batchId: number, name: string, orcid: string, token: string) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql<Scientist>`
-      INSERT INTO scientists (batch_id, orcid, token)
-      VALUES (${batchId}, ${orcid}, ${token})
+      INSERT INTO scientists (batch_id, name, orcid, token)
+      VALUES (${batchId}, ${name}, ${orcid}, ${token})
       RETURNING *
     `;
     return rows[0];
@@ -225,6 +232,7 @@ export const exportResponses = Effect.gen(function* () {
   return yield* sql<ExportRow>`
     SELECT
       b.uploaded_at AS batch_uploaded_at,
+      s.name,
       s.orcid,
       s.token,
       p.doi,

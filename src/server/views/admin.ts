@@ -1,10 +1,11 @@
 import { html, layout, raw } from "./html.js";
 
-const PAGE_STYLE = "max-width:900px;margin:0 auto;padding:2rem;";
+const PAGE_STYLE = "max-width:1000px;margin:0 auto;padding:2rem;";
 const SECTION_STYLE =
   "background:#fff;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);";
 
 type Scientist = {
+  name: string;
   orcid: string;
   token: string;
   submitted_at: string | null;
@@ -31,14 +32,21 @@ document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
 
 function renderScientistRow(origin: string, scientist: Scientist) {
   return html`<tr>
+    <td>${scientist.name}</td>
     <td>${scientist.orcid}</td>
     <td>${scientist.submitted_at ? "Submitted" : "Pending"}</td>
     <td><a href="/s/${scientist.token}">${origin}/s/${scientist.token}</a></td>
   </tr>`;
 }
 
-function renderBatch(origin: string, batch: Batch, highlightBatchId: number | null) {
-  const links = batch.scientists.map((s) => `${s.orcid}\t${origin}/s/${s.token}`).join("\n");
+function renderBatch(
+  origin: string,
+  batch: Batch,
+  highlightBatchId: number | null,
+) {
+  const links = batch.scientists
+    .map((s) => `${s.name}\t${s.orcid}\t${origin}/s/${s.token}`)
+    .join("\n");
   const isHighlighted = batch.id === highlightBatchId;
   return html`<details
     id="batch-${batch.id}"
@@ -46,7 +54,8 @@ function renderBatch(origin: string, batch: Batch, highlightBatchId: number | nu
     ${isHighlighted ? raw("open") : raw("")}
   >
     <summary>
-      Batch #${batch.id} — ${batch.uploaded_at} — ${batch.scientists.length} scientists
+      Batch #${batch.id} — ${batch.uploaded_at} — ${batch.scientists.length}
+      scientists
     </summary>
     <div style="margin-top:0.75rem;">
       ${isHighlighted
@@ -55,16 +64,26 @@ function renderBatch(origin: string, batch: Batch, highlightBatchId: number | nu
           </p>`
         : raw("")}
       <label for="links-${batch.id}"
-        >Survey links for this batch (orcid, then url, one per line)</label
+        >Survey links for this batch (name, orcid, then url, one per
+        line)</label
       >
       <br />
-      <textarea id="links-${batch.id}" readonly rows="3" style="width:100%;">${links}</textarea>
-      <button class="button-secondary button" type="button" data-copy-target="links-${batch.id}">
+      <textarea id="links-${batch.id}" readonly rows="3" style="width:100%;">
+${links}</textarea
+      >
+      <button
+        class="button-secondary button"
+        type="button"
+        data-copy-target="links-${batch.id}"
+      >
         Copy all links
       </button>
-      <table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.75rem;">
+      <table
+        style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.75rem;"
+      >
         <thead>
           <tr>
+            <th style="text-align:left;">Name</th>
             <th style="text-align:left;">ORCID</th>
             <th style="text-align:left;">Status</th>
             <th style="text-align:left;">Survey URL</th>
@@ -83,13 +102,15 @@ export function renderAdminPage({
   batches,
   highlightBatchId,
   duplicateError,
+  missingColumnsError,
 }: {
   origin: string;
   batches: Batch[];
   highlightBatchId: number | null;
   duplicateError: Array<{ orcid: string; doi: string }> | null;
+  missingColumnsError: string[] | null;
 }) {
-  const errorSummary = duplicateError
+  const errorSummary = missingColumnsError
     ? html`<div
         class="error-summary"
         role="alert"
@@ -98,12 +119,26 @@ export function renderAdminPage({
         autofocus
       >
         <h2 id="error-summary-title">There is a problem</h2>
-        <p>This CSV has duplicate ORCID + DOI rows:</p>
+        <p>This CSV is missing required columns:</p>
         <ul>
-          ${duplicateError.map((d) => html`<li>${d.orcid} / ${d.doi}</li>`)}
+          ${missingColumnsError.map((column) => html`<li>${column}</li>`)}
         </ul>
       </div>`
-    : raw("");
+    : duplicateError
+      ? html`<div
+          class="error-summary"
+          role="alert"
+          aria-labelledby="error-summary-title"
+          tabindex="-1"
+          autofocus
+        >
+          <h2 id="error-summary-title">There is a problem</h2>
+          <p>This CSV has duplicate ORCID + DOI rows:</p>
+          <ul>
+            ${duplicateError.map((d) => html`<li>${d.orcid} / ${d.doi}</li>`)}
+          </ul>
+        </div>`
+      : raw("");
 
   return layout({
     title: "Survey Admin",
@@ -112,11 +147,21 @@ export function renderAdminPage({
       ${errorSummary}
       <div style="${SECTION_STYLE}">
         <h2>Upload CSV</h2>
-        <p>Expected columns: <code>orcid, title, abstract, doi</code></p>
-        <form method="post" action="/admin/upload" enctype="multipart/form-data">
+        <p>Expected columns: <code>name, orcid, title, abstract, doi</code></p>
+        <form
+          method="post"
+          action="/admin/upload"
+          enctype="multipart/form-data"
+        >
           <label for="csv-file">CSV file</label>
           <br />
-          <input id="csv-file" type="file" name="csv" accept=".csv,text/csv,text/plain" required />
+          <input
+            id="csv-file"
+            type="file"
+            name="csv"
+            accept=".csv,text/csv,text/plain"
+            required
+          />
           <button class="button" type="submit">Upload</button>
         </form>
       </div>
@@ -129,7 +174,9 @@ export function renderAdminPage({
         : raw("")}
       <div style="${SECTION_STYLE}">
         <h2>Export</h2>
-        <a class="button-link" href="/admin/export.csv">Download responses.csv</a>
+        <a class="button-link" href="/admin/export.csv"
+          >Download responses.csv</a
+        >
       </div>
       <script>
         ${raw(COPY_SCRIPT)};
