@@ -146,6 +146,15 @@ export function renderAdminPage({
       <h1>Survey Admin</h1>
       ${errorSummary}
       <div style="${SECTION_STYLE}">
+        <h2>Add ORCID iD</h2>
+        <form method="post" action="/admin/create-survey">
+          <label for="orcid-id">ORCID iD</label>
+          <br />
+          <input id="orcid-id" type="text" name="orcid-id" required />
+          <button class="button" type="submit">Create survey</button>
+        </form>
+      </div>
+      <div style="${SECTION_STYLE}">
         <h2>Upload CSV</h2>
         <p>Expected columns: <code>name, orcid, title, abstract, doi</code></p>
         <form
