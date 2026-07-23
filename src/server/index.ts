@@ -4,9 +4,10 @@ import {
   HttpServer,
   HttpServerRequest,
   HttpServerResponse,
+  UrlParams,
 } from "@effect/platform";
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Chunk, Effect, Layer, Stream } from "effect";
+import { Schema, Chunk, pipe, Effect, Layer, Stream } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
 import * as Survey from "./routes/survey.js";
@@ -213,6 +214,23 @@ const adminPagesRouter = HttpRouter.empty
             missingColumnsError: null,
           }).__html,
         );
+      }),
+    ),
+    HttpRouter.post(
+      "/create-survey",
+      Effect.gen(function* () {
+        const orcid = yield* pipe(
+          HttpServerRequest.HttpServerRequest,
+          Effect.andThen((request) => request.urlParamsBody),
+          Effect.andThen(
+            Schema.decode(
+              UrlParams.schemaRecord(Schema.Struct({ "orcid-id": Schema.NonEmptyTrimmedString })),
+            ),
+          ),
+        );
+        return HttpServerResponse.unsafeJson(orcid, {
+          contentType: "text/html",
+        });
       }),
     ),
     HttpRouter.post(
