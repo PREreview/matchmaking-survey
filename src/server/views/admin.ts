@@ -30,12 +30,12 @@ document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
 });
 `;
 
-function renderScientistRow(origin: string, scientist: Scientist) {
-  return html`<tr>
-    <td>${scientist.name}</td>
-    <td>${scientist.orcid}</td>
-    <td>${scientist.submitted_at ? "Submitted" : "Pending"}</td>
-    <td><a href="/s/${scientist.token}">${origin}/s/${scientist.token}</a></td>
+function renderScientistRow(scientist: Scientist) {
+  return html`<tr style="border-top:1px solid #e9ecef;">
+    <td style="padding:0.5rem 0.5rem 0.5rem 0;">
+      <a href="/s/${scientist.token}">${scientist.name || scientist.orcid}</a>
+    </td>
+    <td style="padding:0.5rem 0;">${scientist.submitted_at ? "Submitted" : "Pending"}</td>
   </tr>`;
 }
 
@@ -69,14 +69,12 @@ function renderBatch(origin: string, batch: Batch, highlightBatchId: number | nu
       <table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-top:0.75rem;">
         <thead>
           <tr>
-            <th style="text-align:left;">Name</th>
-            <th style="text-align:left;">ORCID</th>
-            <th style="text-align:left;">Status</th>
-            <th style="text-align:left;">Survey URL</th>
+            <th style="text-align:left;padding:0.5rem 0.5rem 0.5rem 0;">Name</th>
+            <th style="text-align:left;padding:0.5rem 0;">Status</th>
           </tr>
         </thead>
         <tbody>
-          ${batch.scientists.map((s) => renderScientistRow(origin, s))}
+          ${batch.scientists.map((s) => renderScientistRow(s))}
         </tbody>
       </table>
     </div>
