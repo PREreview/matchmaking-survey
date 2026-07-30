@@ -134,7 +134,8 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
       const bodyText = yield* req.text;
       const body = new URLSearchParams(bodyText);
       const action = body.get("action") === "prev" ? "prev" : "next";
-      const ratingRaw = Number(body.get("rating"));
+      const ratingParam = body.get("rating");
+      const ratingRaw = ratingParam === null ? NaN : Number(ratingParam);
       const rating =
         Number.isInteger(ratingRaw) && ratingRaw >= 0 && ratingRaw <= 5 ? ratingRaw : null;
       const comment = body.get("comment") || null;
