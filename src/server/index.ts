@@ -7,7 +7,7 @@ import {
   HttpServerResponse,
   UrlParams,
 } from "@effect/platform";
-import { NodeContext, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { NodeContext, NodeHttpClient, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { Schema, pipe, Effect, Layer } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
@@ -365,12 +365,11 @@ const dbFile = process.env.DB_FILE ?? "/data/survey.db";
 const ServerLive = app.pipe(
   HttpServer.serve(HttpMiddleware.logger),
   HttpServer.withLogAddress,
+  Layer.provide([embeddingsLayer, openAlexLayer, orcidLayer]),
   Layer.provide([
     NodeHttpServer.layer(createServer, { port }),
     NodeContext.layer,
-    embeddingsLayer,
-    openAlexLayer,
-    orcidLayer,
+    NodeHttpClient.layer,
   ]),
 );
 
