@@ -158,6 +158,7 @@ const BASE_CSS = `
   }
   .survey .rating-option input {
     position: absolute;
+    z-index: 1;
     opacity: 0;
     width: 1px;
     height: 1px;

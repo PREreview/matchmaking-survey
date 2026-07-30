@@ -229,8 +229,17 @@ describe("migrate", () => {
       }).pipe(Effect.provide(layer)),
     );
     expect(responses).toHaveLength(2);
-    expect(responses.find((r) => r.rating === 4)).toBeTruthy();
-    expect(responses.find((r) => r.rating === 0)).toBeTruthy();
+    const legacyResponse = responses.find((r) => r.rating === 4);
+    const freshResponse = responses.find((r) => r.rating === 0);
+    expect(legacyResponse).toBeTruthy();
+    expect(freshResponse).toBeTruthy();
+    // Backfilled from a response recorded before rating_label_* columns existed —
+    // labels reflect the wording live at that time, not the current wording.
+    expect(legacyResponse?.rating_label_1).toBe("Not interesting");
+    expect(legacyResponse?.rating_label_5).toBe("Extremely interesting");
+    // Recorded via upsertResponse after migrating — reflects current wording.
+    expect(freshResponse?.rating_label_0).toBe("Not sure");
+    expect(freshResponse?.rating_label_5).toBe("Squarely in my research area");
   });
 });
 
@@ -260,6 +269,22 @@ describe("responses", () => {
     expect(responses).toHaveLength(1);
     expect(responses[0].rating).toBe(4);
     expect(responses[0].comment).toBeNull();
+  });
+
+  it("records the current rating label set alongside a response", async () => {
+    const responses = await run(
+      withScientistAndPaper(({ scientistId, paperId }) =>
+        Db.upsertResponse(scientistId, paperId, 4).pipe(
+          Effect.andThen(() => Db.listResponsesForScientist(scientistId)),
+        ),
+      ),
+    );
+    expect(responses[0].rating_label_0).toBe("Not sure");
+    expect(responses[0].rating_label_1).toBe("Not related to my research area");
+    expect(responses[0].rating_label_2).toBe("Only slightly related");
+    expect(responses[0].rating_label_3).toBe("Somewhat related / partial overlap");
+    expect(responses[0].rating_label_4).toBe("Closely related to my area");
+    expect(responses[0].rating_label_5).toBe("Squarely in my research area");
   });
 
   it("upserts a response with a comment", async () => {
@@ -326,5 +351,7 @@ describe("responses", () => {
     expect(rows[0].rating).toBe(3);
     expect(rows[0].comment).toBe("Interesting approach");
     expect(typeof rows[0].batch_uploaded_at).toBe("string");
+    expect(rows[0].rating_label_3).toBe("Somewhat related / partial overlap");
+    expect(rows[0].rating_label_0).toBe("Not sure");
   });
 });

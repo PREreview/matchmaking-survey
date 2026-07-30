@@ -1,14 +1,5 @@
 import { html, layout, raw, type Html } from "./html.js";
-
-const RATING_LABELS: Record<number, string> = {
-  5: "Squarely in my research area",
-  4: "Closely related to my area",
-  3: "Somewhat related / partial overlap",
-  2: "Only slightly related",
-  1: "Not related to my research area",
-};
-
-const RATING_UNSURE_LABEL = "Not sure";
+import { RATING_LABELS, RATING_UNSURE_LABEL } from "../ratingLabels.js";
 
 const RATING_ERROR = "Select how interesting this preprint looks to you";
 

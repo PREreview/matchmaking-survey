@@ -305,6 +305,12 @@ const adminPagesRouter = HttpRouter.empty
           "rating",
           "comment",
           "answered_at",
+          "rating_label_0",
+          "rating_label_1",
+          "rating_label_2",
+          "rating_label_3",
+          "rating_label_4",
+          "rating_label_5",
         ]);
         const lines = rows.map((r) =>
           toCsvLine([
@@ -318,6 +324,12 @@ const adminPagesRouter = HttpRouter.empty
             String(r.rating),
             r.comment ?? "",
             r.answered_at,
+            r.rating_label_0,
+            r.rating_label_1,
+            r.rating_label_2,
+            r.rating_label_3,
+            r.rating_label_4,
+            r.rating_label_5,
           ]),
         );
         const csv = [header, ...lines].join("\n");

@@ -1,6 +1,7 @@
 import { SqlClient } from "@effect/sql";
 import { SqliteClient } from "@effect/sql-sqlite-node";
 import { Effect } from "effect";
+import { ratingLabelFor } from "./ratingLabels.js";
 
 export type DbClient = SqlClient.SqlClient;
 
@@ -27,6 +28,14 @@ export type SurveyPaper = {
   abstract: string;
   display_order: number;
 };
+export type RatingLabelColumns = {
+  rating_label_0: string;
+  rating_label_1: string;
+  rating_label_2: string;
+  rating_label_3: string;
+  rating_label_4: string;
+  rating_label_5: string;
+};
 export type Response = {
   id: number;
   scientist_id: number;
@@ -34,7 +43,7 @@ export type Response = {
   rating: number;
   comment: string | null;
   answered_at: string;
-};
+} & RatingLabelColumns;
 export type ExportRow = {
   batch_uploaded_at: string;
   name: string;
@@ -46,7 +55,7 @@ export type ExportRow = {
   rating: number;
   comment: string | null;
   answered_at: string;
-};
+} & RatingLabelColumns;
 
 export const migrate = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -85,18 +94,44 @@ export const migrate = Effect.gen(function* () {
   `;
   yield* sql`
     CREATE TABLE IF NOT EXISTS responses (
-      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      scientist_id INTEGER NOT NULL REFERENCES scientists(id),
-      paper_id     INTEGER NOT NULL REFERENCES papers(id),
-      rating       INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5),
-      comment      TEXT,
-      answered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      scientist_id   INTEGER NOT NULL REFERENCES scientists(id),
+      paper_id       INTEGER NOT NULL REFERENCES papers(id),
+      rating         INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5),
+      comment        TEXT,
+      answered_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      rating_label_0 TEXT,
+      rating_label_1 TEXT,
+      rating_label_2 TEXT,
+      rating_label_3 TEXT,
+      rating_label_4 TEXT,
+      rating_label_5 TEXT,
       UNIQUE (scientist_id, paper_id)
     )
   `;
   const responseColumns = yield* sql<{ name: string }>`PRAGMA table_info(responses)`;
   if (!responseColumns.some((c) => c.name === "comment")) {
     yield* sql`ALTER TABLE responses ADD COLUMN comment TEXT`;
+  }
+  if (!responseColumns.some((c) => c.name === "rating_label_0")) {
+    yield* sql`ALTER TABLE responses ADD COLUMN rating_label_0 TEXT`;
+    yield* sql`ALTER TABLE responses ADD COLUMN rating_label_1 TEXT`;
+    yield* sql`ALTER TABLE responses ADD COLUMN rating_label_2 TEXT`;
+    yield* sql`ALTER TABLE responses ADD COLUMN rating_label_3 TEXT`;
+    yield* sql`ALTER TABLE responses ADD COLUMN rating_label_4 TEXT`;
+    yield* sql`ALTER TABLE responses ADD COLUMN rating_label_5 TEXT`;
+    // Responses recorded before these columns existed were all submitted under
+    // the wording live prior to the "How relevant is this paper..." rewording —
+    // backfill them with that original label set.
+    yield* sql`
+      UPDATE responses SET
+        rating_label_0 = 'Not sure',
+        rating_label_1 = 'Not interesting',
+        rating_label_2 = 'Slightly interesting',
+        rating_label_3 = 'Moderately interesting',
+        rating_label_4 = 'Very interesting',
+        rating_label_5 = 'Extremely interesting'
+    `;
   }
 
   // SQLite can't ALTER a CHECK constraint in place, so a table created before
@@ -108,18 +143,30 @@ export const migrate = Effect.gen(function* () {
     yield* sql`ALTER TABLE responses RENAME TO responses_old`;
     yield* sql`
       CREATE TABLE responses (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        scientist_id INTEGER NOT NULL REFERENCES scientists(id),
-        paper_id     INTEGER NOT NULL REFERENCES papers(id),
-        rating       INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5),
-        comment      TEXT,
-        answered_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        scientist_id   INTEGER NOT NULL REFERENCES scientists(id),
+        paper_id       INTEGER NOT NULL REFERENCES papers(id),
+        rating         INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5),
+        comment        TEXT,
+        answered_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+        rating_label_0 TEXT,
+        rating_label_1 TEXT,
+        rating_label_2 TEXT,
+        rating_label_3 TEXT,
+        rating_label_4 TEXT,
+        rating_label_5 TEXT,
         UNIQUE (scientist_id, paper_id)
       )
     `;
     yield* sql`
-      INSERT INTO responses (id, scientist_id, paper_id, rating, comment, answered_at)
-      SELECT id, scientist_id, paper_id, rating, comment, answered_at FROM responses_old
+      INSERT INTO responses (
+        id, scientist_id, paper_id, rating, comment, answered_at,
+        rating_label_0, rating_label_1, rating_label_2, rating_label_3, rating_label_4, rating_label_5
+      )
+      SELECT
+        id, scientist_id, paper_id, rating, comment, answered_at,
+        rating_label_0, rating_label_1, rating_label_2, rating_label_3, rating_label_4, rating_label_5
+      FROM responses_old
     `;
     yield* sql`DROP TABLE responses_old`;
   }
@@ -208,13 +255,26 @@ export const upsertResponse = (
 ) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
+    const [l0, l1, l2, l3, l4, l5] = [0, 1, 2, 3, 4, 5].map(ratingLabelFor);
     yield* sql`
-      INSERT INTO responses (scientist_id, paper_id, rating, comment, answered_at)
-      VALUES (${scientistId}, ${paperId}, ${rating}, ${comment}, datetime('now'))
+      INSERT INTO responses (
+        scientist_id, paper_id, rating, comment, answered_at,
+        rating_label_0, rating_label_1, rating_label_2, rating_label_3, rating_label_4, rating_label_5
+      )
+      VALUES (
+        ${scientistId}, ${paperId}, ${rating}, ${comment}, datetime('now'),
+        ${l0}, ${l1}, ${l2}, ${l3}, ${l4}, ${l5}
+      )
       ON CONFLICT (scientist_id, paper_id) DO UPDATE SET
-        rating      = excluded.rating,
-        comment     = excluded.comment,
-        answered_at = excluded.answered_at
+        rating         = excluded.rating,
+        comment        = excluded.comment,
+        answered_at    = excluded.answered_at,
+        rating_label_0 = excluded.rating_label_0,
+        rating_label_1 = excluded.rating_label_1,
+        rating_label_2 = excluded.rating_label_2,
+        rating_label_3 = excluded.rating_label_3,
+        rating_label_4 = excluded.rating_label_4,
+        rating_label_5 = excluded.rating_label_5
     `;
   });
 
@@ -240,7 +300,13 @@ export const exportResponses = Effect.gen(function* () {
       p.abstract,
       r.rating,
       r.comment,
-      r.answered_at
+      r.answered_at,
+      r.rating_label_0,
+      r.rating_label_1,
+      r.rating_label_2,
+      r.rating_label_3,
+      r.rating_label_4,
+      r.rating_label_5
     FROM responses r
     JOIN scientists s ON s.id = r.scientist_id
     JOIN batches   b ON b.id = s.batch_id
