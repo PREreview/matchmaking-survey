@@ -101,7 +101,7 @@ const generateEmbeddings = (
     }));
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
-const meanEmbedding = (embeddings: ReadonlyArray<Embedding>): Embedding => {
+const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
   const len = embeddings[0].length;
   const sum = new Float32Array(len);
   for (const emb of embeddings) {
@@ -133,23 +133,75 @@ const storeEmbedding = (
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
-const getTopCandidates = (
-  mean: Embedding,
-  limit: number,
-  sql: SqlClient.SqlClient,
-): Effect.Effect<ReadonlyArray<Doi>, UnableToGetSurveyPapers> =>
-  Effect.gen(function* () {
-    const encoded = Schema.encodeSync(PgVector)(mean);
-    const rows = yield* sql`
+const getRelatedDois =
+  (limit: number, sql: SqlClient.SqlClient) =>
+  (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToGetSurveyPapers> =>
+    Effect.gen(function* () {
+      const encoded = Schema.encodeSync(PgVector)(mean);
+      const rows = yield* sql`
       SELECT doi FROM documents
       ORDER BY embedding <=> ${encoded}::vector
       LIMIT ${limit}
     `;
-    return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);
-  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
+      return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);
+    }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
 const contentHash = (frontmatter: { title: string; abstract: string }) =>
   `${frontmatter.title.length.toString(16)}:${frontmatter.abstract.length.toString(16)}`;
+
+const getEmbeddingsGeneratingAsNeeded =
+  (apiKey: string, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
+  (inputPapers: ReadonlyArray<Paper>) =>
+    Effect.gen(function* () {
+      const stored = yield* pipe(
+        inputPapers,
+        Effect.forEach((paper) =>
+          getStoredEmbedding(paper.doi, sql).pipe(
+            Effect.map((embedding) => ({ paper, embedding })),
+          ),
+        ),
+      );
+
+      const missingPapers = stored.flatMap(({ paper, embedding }) =>
+        Option.isNone(embedding) ? [paper] : [],
+      );
+
+      const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
+        missingPapers.length > 0
+          ? yield* generateEmbeddings(missingPapers, apiKey, httpClient)
+          : [];
+
+      yield* Effect.forEach(generated, (p) =>
+        storeEmbedding(p.doi, p.embedding, contentHash(p), sql),
+      );
+
+      const generatedByDoi = new Map(generated.map((p) => [p.doi, p.embedding]));
+      const allEmbeddings = stored.flatMap(({ paper, embedding }) => {
+        if (Option.isSome(embedding)) return [embedding.value];
+        const e = generatedByDoi.get(paper.doi);
+        return e !== undefined ? [e] : [];
+      });
+
+      return allEmbeddings;
+    });
+
+const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => {
+  const top7 = candidates.slice(0, 7);
+
+  const mid4 = candidates
+    .slice(20, 30)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 4);
+
+  const topAndMidDois = new Set([...top7, ...mid4]);
+  const random4 = candidates
+    .slice(7)
+    .filter((doi) => !topAndMidDois.has(doi))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 4);
+
+  return [...top7, ...mid4, ...random4];
+};
 
 export const embeddingsLayer = Layer.effect(
   Embeddings,
@@ -160,51 +212,13 @@ export const embeddingsLayer = Layer.effect(
 
     return {
       getSurveyPapers: Effect.fnUntraced(function* (inputPapers) {
-        const stored = yield* pipe(
+        const result = yield* pipe(
           inputPapers,
-          Effect.forEach((paper) =>
-            getStoredEmbedding(paper.doi, sql).pipe(
-              Effect.map((embedding) => ({ paper, embedding })),
-            ),
-          ),
+          getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
+          Effect.andThen(calcMean),
+          Effect.andThen(getRelatedDois(500, sql)),
+          Effect.andThen(getTopMidRandom),
         );
-
-        const missingPapers = stored.flatMap(({ paper, embedding }) =>
-          Option.isNone(embedding) ? [paper] : [],
-        );
-
-        const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
-          missingPapers.length > 0
-            ? yield* generateEmbeddings(missingPapers, apiKey, httpClient)
-            : [];
-
-        yield* Effect.forEach(generated, (p) =>
-          storeEmbedding(p.doi, p.embedding, contentHash(p), sql),
-        );
-
-        const generatedByDoi = new Map(generated.map((p) => [p.doi, p.embedding]));
-        const allEmbeddings = stored.flatMap(({ paper, embedding }) => {
-          if (Option.isSome(embedding)) return [embedding.value];
-          const e = generatedByDoi.get(paper.doi);
-          return e !== undefined ? [e] : [];
-        });
-
-        const mean = meanEmbedding(allEmbeddings);
-
-        const candidates = yield* getTopCandidates(mean, 500, sql);
-
-        const top7 = candidates.slice(0, 7);
-        const mid4 = candidates
-          .slice(20, 30)
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 4);
-        const topAndMidDois = new Set([...top7, ...mid4]);
-        const random4 = candidates
-          .slice(7)
-          .filter((doi) => !topAndMidDois.has(doi))
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 4);
-        const result = [...top7, ...mid4, ...random4];
 
         if (!Array.isNonEmptyReadonlyArray(result)) {
           return yield* new UnableToGetSurveyPapers({
