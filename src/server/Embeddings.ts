@@ -1,6 +1,8 @@
 import { Array, Context, Data, Effect, Layer } from "effect";
 
-export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
+export class UnableToGetSurveyPapers extends Data.TaggedError(
+  "UnableToGetSurveyPapers",
+)<{
   cause?: unknown;
 }> {}
 
@@ -10,12 +12,28 @@ export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
   {
     getSurveyPapers: (
-      input: Array.NonEmptyReadonlyArray<{ doi: Doi; title: string; abstract: string }>,
-    ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
+      input: Array.NonEmptyReadonlyArray<Paper>,
+    ) => Effect.Effect<
+      Array.NonEmptyReadonlyArray<Doi>,
+      UnableToGetSurveyPapers
+    >;
   }
 >() {}
 
+type Paper = { doi: Doi; title: string; abstract: string };
+
+type Embedding = Float32Array;
+
+// oxlint-disable-next-line no-unused-vars
+const getEmbedding = (
+  // oxlint-disable-next-line no-unused-vars
+  paper: Paper,
+): Effect.Effect<Embedding, UnableToGetSurveyPapers> => {
+  return new UnableToGetSurveyPapers({ cause: "not implemented" });
+};
+
 export const embeddingsLayer = Layer.succeed(Embeddings, {
+  // oxlint-disable-next-line no-unused-vars
   getSurveyPapers: Effect.fnUntraced(function* (input) {
     // dependencies: postgres, openrouter
 
