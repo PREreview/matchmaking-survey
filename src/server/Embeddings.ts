@@ -1,9 +1,8 @@
+import { HttpClientRequest, HttpClientResponse, type HttpClient } from "@effect/platform";
 import { SqlClient } from "@effect/sql";
-import { Array, Context, Data, Effect, Layer, Option, Schema } from "effect";
+import { Array, Context, Data, Effect, Layer, Option, pipe, Schema } from "effect";
 
-export class UnableToGetSurveyPapers extends Data.TaggedError(
-  "UnableToGetSurveyPapers",
-)<{
+export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
   cause?: unknown;
 }> {}
 
@@ -14,10 +13,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
   {
     getSurveyPapers: (
       input: Array.NonEmptyReadonlyArray<Paper>,
-    ) => Effect.Effect<
-      Array.NonEmptyReadonlyArray<Doi>,
-      UnableToGetSurveyPapers
-    >;
+    ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
   }
 >() {}
 
@@ -49,24 +45,63 @@ const EmbeddingRow = Schema.Struct({
 // oxlint-disable-next-line no-unused-vars
 const getStoredEmbedding = (
   doi: Doi,
-): Effect.Effect<
-  Option.Option<Embedding>,
-  UnableToGetSurveyPapers,
-  SqlClient.SqlClient
-> =>
+): Effect.Effect<Option.Option<Embedding>, UnableToGetSurveyPapers, SqlClient.SqlClient> =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
 
-    const rows =
-      yield* sql`SELECT embedding FROM documents WHERE doi = ${doi}`.pipe(
-        Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
-      );
+    const rows = yield* sql`SELECT embedding FROM documents WHERE doi = ${doi}`.pipe(
+      Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
+    );
 
     if (rows.length === 0) return Option.none();
 
     const decoded = yield* Schema.decodeUnknown(EmbeddingRow)(rows[0]);
 
     return Option.some(decoded.embedding);
+  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
+
+const EmbeddingResponse = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      embedding: Schema.Array(Schema.Number),
+      index: Schema.Number,
+      object: Schema.Literal("embedding"),
+    }),
+  ),
+  model: Schema.String,
+  object: Schema.Literal("list"),
+  usage: Schema.Struct({
+    prompt_tokens: Schema.Number,
+    total_tokens: Schema.Number,
+  }),
+});
+
+// oxlint-disable-next-line no-unused-vars
+const generateEmbeddings = (
+  papers: ReadonlyArray<Paper>,
+  apiKey: string,
+  httpClient: HttpClient.HttpClient,
+): Effect.Effect<ReadonlyArray<Paper & { embedding: Embedding }>, UnableToGetSurveyPapers> =>
+  Effect.gen(function* () {
+    const input = pipe(
+      papers,
+      Array.map((paper) => `${paper.title}\n\n${paper.abstract}`),
+    );
+
+    const request = yield* pipe(
+      HttpClientRequest.post("https://openrouter.ai/api/v1/embeddings"),
+      HttpClientRequest.setHeader("Authorization", `Bearer ${apiKey}`),
+      HttpClientRequest.bodyJson({ model: "thenlper/gte-large", input }),
+    );
+
+    const response = yield* httpClient.execute(request);
+
+    const parsed = yield* HttpClientResponse.schemaBodyJson(EmbeddingResponse)(response);
+
+    return parsed.data.map((item) => ({
+      ...papers[item.index],
+      embedding: new Float32Array(item.embedding),
+    }));
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
 export const embeddingsLayer = Layer.succeed(Embeddings, {
