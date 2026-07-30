@@ -23,9 +23,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
 
 type Paper = { doi: Doi; title: string; abstract: string };
 
-type Embedding = Float32Array;
-
-const PgVector = Schema.transform(
+export const PgVector = Schema.transform(
   Schema.String,
   Schema.declare((u): u is Float32Array => u instanceof Float32Array, {
     identifier: "Float32Array",
@@ -37,6 +35,8 @@ const PgVector = Schema.transform(
     encode: (arr: Float32Array): string => `[${[...arr].join(",")}]`,
   },
 );
+
+type Embedding = Schema.Schema.Type<typeof PgVector>;
 
 const EmbeddingRow = Schema.Struct({
   doi: Schema.String,
