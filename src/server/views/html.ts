@@ -144,63 +144,77 @@ const BASE_CSS = `
     color: #d4351c;
   }
   .survey .rating-scale {
-    max-width: 30rem;
+    max-width: 36rem;
     margin-inline: auto;
-  }
-  .survey .rating-scale-labels {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-    gap: 3rem;
-  }
-  .survey .rating-scale-endpoint {
-    color: #868e96;
-  }
-  .survey .rating-scale-endpoint:last-child {
-    text-align: right;
   }
   .survey .rating-options {
     display: flex;
-    gap: 0.75rem;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 0.5rem;
   }
   .survey .rating-option {
     position: relative;
-    width: 2.5rem;
-    height: 2.5rem;
   }
   .survey .rating-option input {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
     opacity: 0;
-    cursor: pointer;
+    width: 1px;
+    height: 1px;
   }
   .survey .rating-option label {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
     width: 100%;
-    height: 100%;
+    min-height: 3rem;
+    padding: 0.65rem 1rem 0.65rem 3.35rem;
     border: 1px solid #ced4da;
-    border-radius: 50%;
-    font-weight: 600;
+    border-radius: 8px;
+    font-weight: 500;
     color: #343a40;
     background: #fff;
     cursor: pointer;
   }
-  .survey .rating-option input:hover + label {
+  .survey .rating-option label::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    box-sizing: border-box;
+    border: 2px solid #8a8f96;
+    border-radius: 50%;
+    background: #fff;
+    transform: translateY(-50%);
+  }
+  .survey .rating-option label::after {
+    content: "";
+    position: absolute;
+    left: 1.75rem;
+    top: 50%;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: #0d9488;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.1s ease;
+  }
+  .survey .rating-option input:hover + label::before {
     border-color: #0d9488;
   }
   .survey .rating-option input:checked + label {
-    background: #0d9488;
     border-color: #0d9488;
-    color: #fff;
+    background: #f0faf9;
   }
-  .survey .rating-option input:focus-visible + label {
+  .survey .rating-option input:checked + label::before {
+    border-color: #0d9488;
+  }
+  .survey .rating-option input:checked + label::after {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .survey .rating-option input:focus-visible + label::before {
     outline: 3px solid #0d6efd;
     outline-offset: 2px;
   }
@@ -227,9 +241,9 @@ const BASE_CSS = `
   }
   .survey .rating-option-unsure label {
     width: auto;
-    height: auto;
-    border-radius: 999px;
-    padding: 0.5rem 1.25rem;
+    min-height: 0;
+    border-radius: 8px;
+    padding: 0.5rem 1.25rem 0.5rem 3rem;
   }
   .survey .comment-label {
     display: block;

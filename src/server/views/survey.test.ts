@@ -105,14 +105,19 @@ describe("renderPaperPage", () => {
   it("labels every rating option 1 through 5", () => {
     const result = renderPaperPage(base).__html;
     for (const label of [
-      "Not interesting",
-      "Slightly interesting",
-      "Moderately interesting",
-      "Very interesting",
-      "Extremely interesting",
+      "Not related to my research area",
+      "Only slightly related",
+      "Somewhat related / partial overlap",
+      "Closely related to my area",
+      "Squarely in my research area",
     ]) {
       expect(result).toContain(label);
     }
+  });
+
+  it("asks how relevant the paper is to the respondent's research area", () => {
+    const result = renderPaperPage(base).__html;
+    expect(result).toContain("How relevant is this paper to your research area?");
   });
 
   it("offers a Not sure option separate from the numbered scale", () => {

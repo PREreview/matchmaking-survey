@@ -1,11 +1,11 @@
 import { html, layout, raw, type Html } from "./html.js";
 
 const RATING_LABELS: Record<number, string> = {
-  1: "Not interesting",
-  2: "Slightly interesting",
-  3: "Moderately interesting",
-  4: "Very interesting",
-  5: "Extremely interesting",
+  5: "Squarely in my research area",
+  4: "Closely related to my area",
+  3: "Somewhat related / partial overlap",
+  2: "Only slightly related",
+  1: "Not related to my research area",
 };
 
 const RATING_UNSURE_LABEL = "Not sure";
@@ -109,7 +109,7 @@ export function renderPaperPage({
       >
         <h2 id="error-summary-title">There is a problem</h2>
         <ul>
-          <li><a href="#rating-1">${RATING_ERROR}</a></li>
+          <li><a href="#rating-5">${RATING_ERROR}</a></li>
         </ul>
       </div>`
     : raw("");
@@ -118,7 +118,7 @@ export function renderPaperPage({
     ? html`<p id="rating-error" class="field-error">${RATING_ERROR}</p>`
     : raw("");
 
-  const ratingOptions = [1, 2, 3, 4, 5].map(
+  const ratingOptions = [5, 4, 3, 2, 1].map(
     (n) => html`<div class="rating-option">
       <input
         type="radio"
@@ -128,10 +128,7 @@ export function renderPaperPage({
         required
         ${rating === n ? raw("checked") : raw("")}
       />
-      <label for="rating-${n}"
-        ><span aria-hidden="true">${n}</span
-        ><span class="visually-hidden">${n} – ${RATING_LABELS[n]}</span></label
-      >
+      <label for="rating-${n}">${RATING_LABELS[n]}</label>
     </div>`,
   );
 
@@ -158,14 +155,11 @@ export function renderPaperPage({
       <form method="post" action="/s/${token}/${page}">
         <fieldset class="card" ${error ? raw(' aria-describedby="rating-error"') : raw("")}>
           <legend>
-            Does this look interesting to you? <span class="required" aria-hidden="true">*</span>
+            How relevant is this paper to your research area?
+            <span class="required" aria-hidden="true">*</span>
           </legend>
           ${fieldError}
           <div class="rating-scale">
-            <div class="rating-scale-labels">
-              <span class="rating-scale-endpoint" aria-hidden="true">Not interesting</span>
-              <span class="rating-scale-endpoint" aria-hidden="true">Extremely interesting</span>
-            </div>
             <div class="rating-options">${ratingOptions}</div>
             <div class="rating-divider" aria-hidden="true"><span>or</span></div>
             ${unsureOption}
