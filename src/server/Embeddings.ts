@@ -1,4 +1,5 @@
-import { Array, Context, Data, Effect, Layer } from "effect";
+import { SqlClient } from "@effect/sql";
+import { Array, Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 export class UnableToGetSurveyPapers extends Data.TaggedError(
   "UnableToGetSurveyPapers",
@@ -24,13 +25,49 @@ type Paper = { doi: Doi; title: string; abstract: string };
 
 type Embedding = Float32Array;
 
+const PgVector = Schema.transform(
+  Schema.String,
+  Schema.declare((u): u is Float32Array => u instanceof Float32Array, {
+    identifier: "Float32Array",
+    description: "A Float32Array of embedding dimensions",
+  }),
+  {
+    decode: (raw: string): Float32Array =>
+      new Float32Array(raw.slice(1, -1).split(",").map(Number)),
+    encode: (arr: Float32Array): string => `[${[...arr].join(",")}]`,
+  },
+);
+
+const EmbeddingRow = Schema.Struct({
+  doi: Schema.String,
+  embedding: PgVector,
+  requestTimestamp: Schema.optional(Schema.DateTimeUtc),
+  frontmatterHash: Schema.String,
+  language: Schema.String,
+});
+
 // oxlint-disable-next-line no-unused-vars
-const getEmbedding = (
-  // oxlint-disable-next-line no-unused-vars
-  paper: Paper,
-): Effect.Effect<Embedding, UnableToGetSurveyPapers> => {
-  return new UnableToGetSurveyPapers({ cause: "not implemented" });
-};
+const getStoredEmbedding = (
+  doi: Doi,
+): Effect.Effect<
+  Option.Option<Embedding>,
+  UnableToGetSurveyPapers,
+  SqlClient.SqlClient
+> =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+
+    const rows =
+      yield* sql`SELECT embedding FROM documents WHERE doi = ${doi}`.pipe(
+        Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
+      );
+
+    if (rows.length === 0) return Option.none();
+
+    const decoded = yield* Schema.decodeUnknown(EmbeddingRow)(rows[0]);
+
+    return Option.some(decoded.embedding);
+  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
 export const embeddingsLayer = Layer.succeed(Embeddings, {
   // oxlint-disable-next-line no-unused-vars
