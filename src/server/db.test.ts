@@ -239,7 +239,7 @@ describe("migrate", () => {
     expect(legacyResponse?.rating_label_5).toBe("Extremely interesting");
     // Recorded via upsertResponse after migrating — reflects current wording.
     expect(freshResponse?.rating_label_0).toBe("Not sure");
-    expect(freshResponse?.rating_label_5).toBe("Squarely in my research area");
+    expect(freshResponse?.rating_label_5).toBe("This is my research area");
   });
 });
 
@@ -284,7 +284,7 @@ describe("responses", () => {
     expect(responses[0].rating_label_2).toBe("Only slightly related");
     expect(responses[0].rating_label_3).toBe("Somewhat related / partial overlap");
     expect(responses[0].rating_label_4).toBe("Closely related to my area");
-    expect(responses[0].rating_label_5).toBe("Squarely in my research area");
+    expect(responses[0].rating_label_5).toBe("This is my research area");
   });
 
   it("upserts a response with a comment", async () => {

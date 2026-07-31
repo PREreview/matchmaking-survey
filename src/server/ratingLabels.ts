@@ -1,5 +1,5 @@
 export const RATING_LABELS: Record<number, string> = {
-  5: "Squarely in my research area",
+  5: "This is my research area",
   4: "Closely related to my area",
   3: "Somewhat related / partial overlap",
   2: "Only slightly related",

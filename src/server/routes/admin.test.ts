@@ -146,6 +146,6 @@ describe("getExportRows", () => {
     expect(rows[0].orcid).toBe("0000-0002-2222-2222");
     expect(rows[0].rating).toBe(5);
     expect(rows[0].doi).toBe("10.1/gamma");
-    expect(rows[0].rating_label_5).toBe("Squarely in my research area");
+    expect(rows[0].rating_label_5).toBe("This is my research area");
   });
 });

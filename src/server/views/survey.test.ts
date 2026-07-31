@@ -109,7 +109,7 @@ describe("renderPaperPage", () => {
       "Only slightly related",
       "Somewhat related / partial overlap",
       "Closely related to my area",
-      "Squarely in my research area",
+      "This is my research area",
     ]) {
       expect(result).toContain(label);
     }
