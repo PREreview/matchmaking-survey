@@ -158,7 +158,7 @@ export function renderPaperPage({
         </fieldset>
         <div class="card">
           <label class="comment-label" for="comment"
-            >Any comments about this match or your rating? (optional)</label
+            >Is there anything you'd like to add to your response? (optional)</label
           >
           <textarea id="comment" name="comment" rows="4" cols="60">${comment ?? ""}</textarea>
         </div>
