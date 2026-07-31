@@ -24,25 +24,29 @@ export const generateEmbeddings = (
   httpClient: HttpClient.HttpClient,
 ): Effect.Effect<ReadonlyArray<Paper & { embedding: Embedding }>, UnableToGetSurveyPapers> =>
   Effect.gen(function* () {
-    const input = pipe(
-      papers,
-      Array.map((paper) => `${paper.title}\n\n${paper.abstract}`),
-    );
+    const inputGroups = pipe(papers, Array.chunksOf(50));
 
-    const request = yield* pipe(
-      HttpClientRequest.post("https://openrouter.ai/api/v1/embeddings"),
-      HttpClientRequest.bearerToken(apiKey),
-      HttpClientRequest.bodyJson({ model: "thenlper/gte-large", input }),
-    );
+    return yield* Effect.forEach(
+      inputGroups,
+      Effect.fnUntraced(function* (papers) {
+        const request = yield* pipe(
+          HttpClientRequest.post("https://openrouter.ai/api/v1/embeddings"),
+          HttpClientRequest.bearerToken(apiKey),
+          HttpClientRequest.bodyJson({
+            model: "thenlper/gte-large",
+            input: Array.map(papers, (paper) => `${paper.title}\n\n${paper.abstract}`)
+          }),
+        );
 
-    const response = yield* httpClient.execute(request);
+        const response = yield* httpClient.execute(request);
+        yield* HttpClientResponse.filterStatusOk(response);
 
-    yield* HttpClientResponse.filterStatusOk(response);
+        const parsed = yield* HttpClientResponse.schemaBodyJson(EmbeddingResponse)(response);
 
-    const parsed = yield* HttpClientResponse.schemaBodyJson(EmbeddingResponse)(response);
-
-    return parsed.data.map((item) => ({
-      ...papers[item.index],
-      embedding: new Float32Array(item.embedding),
-    }));
+        return parsed.data.map((item) => ({
+          ...papers[item.index],
+          embedding: new Float32Array(item.embedding),
+        }));
+      }),
+    ).pipe(Effect.andThen(Array.flatten));
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
