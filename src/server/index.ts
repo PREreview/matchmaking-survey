@@ -8,7 +8,7 @@ import {
   UrlParams,
 } from "@effect/platform";
 import { NodeContext, NodeHttpClient, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Schema, pipe, Effect, Layer, Config, Logger, LogLevel } from "effect";
+import { Array, Schema, pipe, Effect, Layer, Config, Logger, LogLevel } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
 import * as Survey from "./routes/survey.js";
@@ -243,7 +243,7 @@ const adminPagesRouter = HttpRouter.empty
           ),
         );
 
-        yield* Admin.addPreprints(dois);
+        yield* Admin.addPreprints(Array.dedupe(dois));
 
         return yield* HttpServerResponse.redirect(`/admin`, { status: 303 });
       }),
