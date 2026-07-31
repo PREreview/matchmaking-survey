@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { PgVector } from "./Embeddings.js";
+import { PgVector } from "./index.js";
 
 describe("PgVector", () => {
   it("decodes a postgres vector string to Float32Array", () => {

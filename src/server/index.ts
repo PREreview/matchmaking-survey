@@ -15,7 +15,7 @@ import * as Survey from "./routes/survey.js";
 import * as Db from "./db.js";
 import * as SurveyViews from "./views/survey.js";
 import * as AdminViews from "./views/admin.js";
-import { embeddingsLayer } from "./Embeddings.js";
+import { embeddingsLayer } from "./Embeddings/index.js";
 import { openAlexLayer } from "./OpenAlex.js";
 import { orcidLayer } from "./Orcid.js";
 
