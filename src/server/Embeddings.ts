@@ -1,6 +1,17 @@
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "@effect/platform";
 import { SqlClient } from "@effect/sql";
-import { Array, Config, Context, Data, Effect, Layer, Option, pipe, Schema } from "effect";
+import {
+  Array,
+  Config,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Option,
+  pipe,
+  Redacted,
+  Schema,
+} from "effect";
 
 export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
   cause?: unknown;
@@ -76,7 +87,7 @@ const EmbeddingResponse = Schema.Struct({
 
 const generateEmbeddings = (
   papers: ReadonlyArray<Paper>,
-  apiKey: string,
+  apiKey: Redacted.Redacted,
   httpClient: HttpClient.HttpClient,
 ): Effect.Effect<ReadonlyArray<Paper & { embedding: Embedding }>, UnableToGetSurveyPapers> =>
   Effect.gen(function* () {
@@ -87,7 +98,7 @@ const generateEmbeddings = (
 
     const request = yield* pipe(
       HttpClientRequest.post("https://openrouter.ai/api/v1/embeddings"),
-      HttpClientRequest.setHeader("Authorization", `Bearer ${apiKey}`),
+      HttpClientRequest.bearerToken(apiKey),
       HttpClientRequest.bodyJson({ model: "thenlper/gte-large", input }),
     );
 
@@ -150,7 +161,7 @@ const contentHash = (frontmatter: { title: string; abstract: string }) =>
   `${frontmatter.title.length.toString(16)}:${frontmatter.abstract.length.toString(16)}`;
 
 const getEmbeddingsGeneratingAsNeeded =
-  (apiKey: string, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
+  (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
   (inputPapers: ReadonlyArray<Paper>) =>
     Effect.gen(function* () {
       const papersWithExistingEmbeddings = yield* pipe(
@@ -208,7 +219,7 @@ export const embeddingsLayer = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const httpClient = yield* HttpClient.HttpClient;
-    const apiKey = yield* Config.string("OPENROUTER_API_KEY");
+    const apiKey = yield* Config.redacted("OPENROUTER_API_KEY");
 
     return {
       getSurveyPapers: Effect.fnUntraced(function* (inputPapers) {
