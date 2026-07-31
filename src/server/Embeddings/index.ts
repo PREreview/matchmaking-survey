@@ -1,8 +1,8 @@
 import { HttpClient } from "@effect/platform";
 import { SqlClient } from "@effect/sql";
-import { Array, Config, Context, Effect, Layer, Option, pipe, Redacted, Schema } from "effect";
-import { generateEmbeddings } from "./OpenRouter";
+import { Array, Config, Context, Effect, Layer, pipe, Schema } from "effect";
 import { PgVector, UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
+import { getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
 
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
@@ -12,27 +12,6 @@ export class Embeddings extends Context.Tag("Embeddings")<
     ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
   }
 >() {}
-
-const EmbeddingRow = Schema.Struct({
-  doi: Schema.String,
-  embedding: PgVector,
-});
-
-const getStoredEmbedding = (
-  doi: Doi,
-  sql: SqlClient.SqlClient,
-): Effect.Effect<Option.Option<Embedding>, UnableToGetSurveyPapers> =>
-  Effect.gen(function* () {
-    const rows = yield* sql`SELECT embedding FROM documents WHERE doi = ${doi}`.pipe(
-      Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
-    );
-
-    if (rows.length === 0) return Option.none();
-
-    const decoded = yield* Schema.decodeUnknown(EmbeddingRow)(rows[0]);
-
-    return Option.some(decoded.embedding);
-  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
 const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
   const len = embeddings[0].length;
@@ -48,19 +27,6 @@ const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
   return sum;
 };
 
-const storeEmbedding = (
-  doi: Doi,
-  embedding: Embedding,
-  sql: SqlClient.SqlClient,
-): Effect.Effect<void, UnableToGetSurveyPapers> =>
-  Effect.gen(function* () {
-    const encoded = Schema.encodeSync(PgVector)(embedding);
-    yield* sql`
-      INSERT INTO documents (doi, embedding)
-      VALUES (${doi}, ${encoded}::vector)
-    `;
-  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
-
 const getRelatedDois =
   (limit: number, sql: SqlClient.SqlClient) =>
   (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToGetSurveyPapers> =>
@@ -73,40 +39,6 @@ const getRelatedDois =
     `;
       return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);
     }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
-
-const getEmbeddingsGeneratingAsNeeded =
-  (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
-  (inputPapers: ReadonlyArray<Paper>) =>
-    Effect.gen(function* () {
-      const papersWithExistingEmbeddings = yield* pipe(
-        inputPapers,
-        Effect.forEach((paper) =>
-          getStoredEmbedding(paper.doi, sql).pipe(
-            Effect.map((embedding) => ({ paper, embedding })),
-          ),
-        ),
-      );
-
-      const papersWithoutEmbeddings = papersWithExistingEmbeddings.flatMap(({ paper, embedding }) =>
-        Option.isNone(embedding) ? [paper] : [],
-      );
-
-      const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
-        papersWithoutEmbeddings.length > 0
-          ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient)
-          : [];
-
-      yield* Effect.forEach(generated, (p) => storeEmbedding(p.doi, p.embedding, sql));
-
-      const generatedByDoi = new Map(generated.map((p) => [p.doi, p.embedding]));
-      const allEmbeddings = papersWithExistingEmbeddings.flatMap(({ paper, embedding }) => {
-        if (Option.isSome(embedding)) return [embedding.value];
-        const e = generatedByDoi.get(paper.doi);
-        return e !== undefined ? [e] : [];
-      });
-
-      return allEmbeddings;
-    });
 
 const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => {
   const top7 = candidates.slice(0, 7);
