@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform";
-import { SqlClient } from "@effect/sql";
+import { SqlClient, SqlError } from "@effect/sql";
 import { Effect, Option, pipe, Redacted, Schema } from "effect";
 import { generateEmbeddings } from "./OpenRouter";
 import { PgVector, UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
@@ -37,6 +37,16 @@ const storeEmbedding = (
       VALUES (${doi}, ${encoded}::vector)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
+
+export const ensureResearchAreaWorksTableExists = (
+  sql: SqlClient.SqlClient,
+): Effect.Effect<void, SqlError.SqlError> =>
+  sql`
+    CREATE TABLE IF NOT EXISTS research_area_works (
+      doi VARCHAR PRIMARY KEY,
+      embedding VECTOR(1024)
+    )
+  `;
 
 export const getEmbeddingsGeneratingAsNeeded =
   (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>

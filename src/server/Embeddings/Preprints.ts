@@ -1,6 +1,6 @@
 import { Effect, pipe, Redacted, Schema } from "effect";
 import { PgVector, UnableToAddPreprints, type Doi, type Embedding, type Paper } from "./Shared";
-import type { SqlClient } from "@effect/sql";
+import type { SqlClient, SqlError } from "@effect/sql";
 import type { HttpClient } from "@effect/platform";
 import { generateEmbeddings } from "./OpenRouter";
 
@@ -30,6 +30,16 @@ const storeEmbedding = (
       VALUES (${doi}, ${encoded}::vector)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
+
+export const ensurePreprintsTableExists = (
+  sql: SqlClient.SqlClient,
+): Effect.Effect<void, SqlError.SqlError> =>
+  sql`
+    CREATE TABLE IF NOT EXISTS preprints (
+      doi VARCHAR PRIMARY KEY,
+      embedding VECTOR(1024)
+    )
+  `;
 
 export const getRelatedDois =
   (limit: number, sql: SqlClient.SqlClient) =>

@@ -7,8 +7,11 @@ import {
   type Embedding,
   type Paper,
 } from "./Shared";
-import { getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
-import { createMissingEmbeddings, getRelatedDois } from "./Preprints";
+import {
+  ensureResearchAreaWorksTableExists,
+  getEmbeddingsGeneratingAsNeeded,
+} from "./ResearchAreaWorks";
+import { createMissingEmbeddings, ensurePreprintsTableExists, getRelatedDois } from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
 
 export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
@@ -75,6 +78,10 @@ export const embeddingsLayer = Layer.effect(
     const sql = yield* EmbeddingsClient;
     const httpClient = yield* HttpClient.HttpClient;
     const apiKey = yield* Config.redacted("OPENROUTER_API_KEY");
+
+    yield* Effect.all([ensurePreprintsTableExists(sql), ensureResearchAreaWorksTableExists(sql)], {
+      concurrency: "inherit",
+    });
 
     return {
       getSurveyPapers: Effect.fnUntraced(function* (inputPapers) {
