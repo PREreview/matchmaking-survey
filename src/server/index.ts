@@ -378,7 +378,9 @@ const main = Db.migrate.pipe(
   Effect.andThen(Layer.launch(ServerLive)),
   Effect.provide([
     Db.sqliteLayer(dbFile),
-    EmbeddingsClient.layer.pipe(Layer.provide(PgClient.layerConfig({  url: Config.redacted(Config.string('POSTGRES_URL')),}))),
+    EmbeddingsClient.layer.pipe(
+      Layer.provide(PgClient.layerConfig({ url: Config.redacted(Config.string("POSTGRES_URL")) })),
+    ),
   ]),
 );
 
