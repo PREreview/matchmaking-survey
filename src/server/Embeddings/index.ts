@@ -1,8 +1,9 @@
 import { HttpClient } from "@effect/platform";
 import { SqlClient } from "@effect/sql";
-import { Array, Config, Context, Effect, Layer, pipe, Schema } from "effect";
-import { PgVector, UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
+import { Array, Config, Context, Effect, Layer, pipe } from "effect";
+import { UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
 import { getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
+import { getRelatedDois } from "./Preprints";
 
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
@@ -26,19 +27,6 @@ const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
   }
   return sum;
 };
-
-const getRelatedDois =
-  (limit: number, sql: SqlClient.SqlClient) =>
-  (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToGetSurveyPapers> =>
-    Effect.gen(function* () {
-      const encoded = Schema.encodeSync(PgVector)(mean);
-      const rows = yield* sql`
-      SELECT doi FROM documents
-      ORDER BY embedding <=> ${encoded}::vector
-      LIMIT ${limit}
-    `;
-      return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);
-    }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
 const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => {
   const top7 = candidates.slice(0, 7);
