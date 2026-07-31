@@ -2,8 +2,9 @@ IMAGE := match-feedback-survey
 DATA  := $(PWD)/data
 
 .PHONY: dev
-dev: node_modules .env
+dev: node_modules .env start-services
 	mkdir -p data
+	POSTGRES_URL=postgres://postgres:password@$(shell docker compose port postgres 5432) \
 	export $$(grep -v '^#' .env | xargs) && pnpm exec tsx watch src/server/index.ts
 
 .env:
@@ -11,6 +12,10 @@ dev: node_modules .env
 
 node_modules: package.json pnpm-lock.yaml pnpm-workspace.yaml
 	pnpm install --frozen-lockfile
+
+.PHONY: start-services
+start-services:
+	docker compose up --detach postgres
 
 .PHONY: prod
 prod: .env

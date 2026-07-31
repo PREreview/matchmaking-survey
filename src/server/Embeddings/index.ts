@@ -1,5 +1,4 @@
 import { HttpClient } from "@effect/platform";
-import { SqlClient } from "@effect/sql";
 import { Array, Config, Context, Effect, Layer, pipe } from "effect";
 import {
   UnableToGetSurveyPapers,
@@ -10,6 +9,23 @@ import {
 } from "./Shared";
 import { getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
 import { createMissingEmbeddings, getRelatedDois } from "./Preprints";
+import { PgClient } from "@effect/sql-pg";
+
+export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
+  EmbeddingsClient,
+  PgClient.PgClient
+>() {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.gen(function* () {
+      const sql = yield* PgClient.PgClient;
+
+      yield* sql`CREATE EXTENSION IF NOT EXISTS vector`;
+
+      return sql;
+    }),
+  );
+}
 
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
@@ -56,7 +72,7 @@ const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => 
 export const embeddingsLayer = Layer.effect(
   Embeddings,
   Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
+    const sql = yield* EmbeddingsClient;
     const httpClient = yield* HttpClient.HttpClient;
     const apiKey = yield* Config.redacted("OPENROUTER_API_KEY");
 

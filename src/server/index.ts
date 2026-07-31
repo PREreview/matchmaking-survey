@@ -8,16 +8,17 @@ import {
   UrlParams,
 } from "@effect/platform";
 import { NodeContext, NodeHttpClient, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Schema, pipe, Effect, Layer } from "effect";
+import { Schema, pipe, Effect, Layer, Config } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
 import * as Survey from "./routes/survey.js";
 import * as Db from "./db.js";
 import * as SurveyViews from "./views/survey.js";
 import * as AdminViews from "./views/admin.js";
-import { embeddingsLayer } from "./Embeddings/index.js";
+import { EmbeddingsClient, embeddingsLayer } from "./Embeddings/index.js";
 import { openAlexLayer } from "./OpenAlex.js";
 import { orcidLayer } from "./Orcid.js";
+import { PgClient } from "@effect/sql-pg";
 
 function htmlResponse(html: string, status = 200) {
   return HttpServerResponse.text(html, { contentType: "text/html", status });
@@ -375,7 +376,10 @@ const ServerLive = app.pipe(
 
 const main = Db.migrate.pipe(
   Effect.andThen(Layer.launch(ServerLive)),
-  Effect.provide(Db.sqliteLayer(dbFile)),
+  Effect.provide([
+    Db.sqliteLayer(dbFile),
+    EmbeddingsClient.layer.pipe(Layer.provide(PgClient.layerConfig({  url: Config.redacted(Config.string('POSTGRES_URL')),}))),
+  ]),
 );
 
 NodeRuntime.runMain(main);
