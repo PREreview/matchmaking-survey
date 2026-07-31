@@ -8,7 +8,7 @@ import {
   UrlParams,
 } from "@effect/platform";
 import { NodeContext, NodeHttpClient, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Schema, pipe, Effect, Layer, Config } from "effect";
+import { Schema, pipe, Effect, Layer, Config, Logger, LogLevel } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
 import * as Survey from "./routes/survey.js";
@@ -19,6 +19,7 @@ import { EmbeddingsClient, embeddingsLayer } from "./Embeddings/index.js";
 import { openAlexLayer } from "./OpenAlex.js";
 import { orcidLayer } from "./Orcid.js";
 import { PgClient } from "@effect/sql-pg";
+import { LoggingHttpClientLayer } from "./LoggingHttpClient.js";
 
 function htmlResponse(html: string, status = 200) {
   return HttpServerResponse.text(html, { contentType: "text/html", status });
@@ -392,6 +393,7 @@ const ServerLive = app.pipe(
   HttpServer.serve(HttpMiddleware.logger),
   HttpServer.withLogAddress,
   Layer.provide([embeddingsLayer, openAlexLayer, orcidLayer]),
+  Layer.provide(LoggingHttpClientLayer),
   Layer.provide([
     NodeHttpServer.layer(createServer, { port }),
     NodeContext.layer,
@@ -407,6 +409,7 @@ const main = Db.migrate.pipe(
       Layer.provide(PgClient.layerConfig({ url: Config.redacted(Config.string("POSTGRES_URL")) })),
     ),
   ]),
+  Logger.withMinimumLogLevel(LogLevel.Debug),
 );
 
 NodeRuntime.runMain(main);
