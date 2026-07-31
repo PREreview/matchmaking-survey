@@ -14,7 +14,7 @@ const getStoredEmbedding = (
   sql: SqlClient.SqlClient,
 ): Effect.Effect<Option.Option<Embedding>, UnableToGetSurveyPapers> =>
   Effect.gen(function* () {
-    const rows = yield* sql`SELECT embedding FROM documents WHERE doi = ${doi}`.pipe(
+    const rows = yield* sql`SELECT embedding FROM research_area_works WHERE doi = ${doi}`.pipe(
       Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
     );
 
@@ -33,7 +33,7 @@ const storeEmbedding = (
   Effect.gen(function* () {
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
-      INSERT INTO documents (doi, embedding)
+      INSERT INTO research_area_works (doi, embedding)
       VALUES (${doi}, ${encoded}::vector)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));

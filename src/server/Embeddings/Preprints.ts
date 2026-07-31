@@ -8,7 +8,7 @@ export const getRelatedDois =
     Effect.gen(function* () {
       const encoded = Schema.encodeSync(PgVector)(mean);
       const rows = yield* sql`
-      SELECT doi FROM documents
+      SELECT doi FROM preprints
       ORDER BY embedding <=> ${encoded}::vector
       LIMIT ${limit}
     `;
