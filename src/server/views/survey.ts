@@ -1,7 +1,7 @@
 import { html, layout, raw, type Html } from "./html.js";
 import { RATING_LABELS, RATING_UNSURE_LABEL } from "../ratingLabels.js";
 
-const RATING_ERROR = "Select how interesting this preprint looks to you";
+const RATING_ERROR = "Select relevant this paper is to your research area";
 
 function renderProgressTrack(page: number, total: number): Html {
   const items: Html[] = [];
@@ -56,7 +56,7 @@ export function renderIntroPage({ token, paperCount }: { token: string; paperCou
         We’ll show you ${paperCount} preprint title${paperCount === 1 ? "" : "s"} and abstracts.
         These are based on works that appear on your public ORCID record.
       </p>
-      <p>For each preprint, we’ll ask you to rate how interesting it seems to you.</p>
+      <p>For each preprint, we’ll ask you how relevant it seems to your research area.</p>
       <p>
         We’re just looking for your initial response to the preprint title and abstract, so we’re
         not expecting you to take any other action (including actually reading the preprint!).
@@ -110,17 +110,18 @@ export function renderPaperPage({
     : raw("");
 
   const ratingOptions = [5, 4, 3, 2, 1].map(
-    (n) => html`<div class="rating-option">
-      <input
-        type="radio"
-        id="rating-${n}"
-        name="rating"
-        value="${n}"
-        required
-        ${rating === n ? raw("checked") : raw("")}
-      />
-      <label for="rating-${n}">${RATING_LABELS[n]}</label>
-    </div>`,
+    (n) =>
+      html`<div class="rating-option">
+        <input
+          type="radio"
+          id="rating-${n}"
+          name="rating"
+          value="${n}"
+          required
+          ${rating === n ? raw("checked") : raw("")}
+        />
+        <label for="rating-${n}">${RATING_LABELS[n]}</label>
+      </div>`,
   );
 
   const unsureOption = html`<div class="rating-option rating-option-unsure">
