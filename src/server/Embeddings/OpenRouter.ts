@@ -34,7 +34,9 @@ export const generateEmbeddings = (
           HttpClientRequest.bearerToken(apiKey),
           HttpClientRequest.bodyJson({
             model: "thenlper/gte-large",
-            input: Array.map(papers, (paper) => `${paper.title}\n\n${paper.abstract}`)
+            input: Array.map(papers, (paper) =>
+              truncateToModelLimit(`${paper.title}\n\n${paper.abstract}`, 512),
+            ),
           }),
         );
 
@@ -50,3 +52,27 @@ export const generateEmbeddings = (
       }),
     ).pipe(Effect.andThen(Array.flatten));
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
+
+// Conservative local token estimate (no external tokenizer):
+// Using 3 chars/token is stricter than the common ~4 chars/token rule of thumb.
+const estimateTokens = (text: string): number => Math.ceil(text.length / 3);
+
+const truncateToModelLimit = (text: string, maxTokens: number): string => {
+  if (estimateTokens(text) <= maxTokens) return text;
+
+  // Binary search longest prefix within estimated token budget
+  let lo = 0;
+  let hi = text.length;
+
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = text.slice(0, mid);
+    if (estimateTokens(candidate) <= maxTokens) lo = mid;
+    else hi = mid - 1;
+  }
+
+  // Trim to a word boundary when possible
+  const cut = text.slice(0, lo);
+  const boundary = cut.lastIndexOf(" ");
+  return (boundary > 0 ? cut.slice(0, boundary) : cut).trimEnd();
+};
