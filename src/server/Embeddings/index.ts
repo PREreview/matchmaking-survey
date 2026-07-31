@@ -1,23 +1,8 @@
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "@effect/platform";
+import { HttpClient } from "@effect/platform";
 import { SqlClient } from "@effect/sql";
-import {
-  Array,
-  Config,
-  Context,
-  Data,
-  Effect,
-  Layer,
-  Option,
-  pipe,
-  Redacted,
-  Schema,
-} from "effect";
-
-export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
-  cause?: unknown;
-}> {}
-
-type Doi = string;
+import { Array, Config, Context, Effect, Layer, Option, pipe, Redacted, Schema } from "effect";
+import { generateEmbeddings } from "./OpenRouter";
+import { PgVector, UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
 
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
@@ -27,23 +12,6 @@ export class Embeddings extends Context.Tag("Embeddings")<
     ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
   }
 >() {}
-
-type Paper = { doi: Doi; title: string; abstract: string };
-
-export const PgVector = Schema.transform(
-  Schema.String,
-  Schema.declare((u): u is Float32Array => u instanceof Float32Array, {
-    identifier: "Float32Array",
-    description: "A Float32Array of embedding dimensions",
-  }),
-  {
-    decode: (raw: string): Float32Array =>
-      new Float32Array(raw.slice(1, -1).split(",").map(Number)),
-    encode: (arr: Float32Array): string => `[${[...arr].join(",")}]`,
-  },
-);
-
-type Embedding = Schema.Schema.Type<typeof PgVector>;
 
 const EmbeddingRow = Schema.Struct({
   doi: Schema.String,
@@ -64,49 +32,6 @@ const getStoredEmbedding = (
     const decoded = yield* Schema.decodeUnknown(EmbeddingRow)(rows[0]);
 
     return Option.some(decoded.embedding);
-  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
-
-const EmbeddingResponse = Schema.Struct({
-  data: Schema.Array(
-    Schema.Struct({
-      embedding: Schema.Array(Schema.Number),
-      index: Schema.Number,
-      object: Schema.Literal("embedding"),
-    }),
-  ),
-  model: Schema.String,
-  object: Schema.Literal("list"),
-  usage: Schema.Struct({
-    prompt_tokens: Schema.Number,
-    total_tokens: Schema.Number,
-  }),
-});
-
-const generateEmbeddings = (
-  papers: ReadonlyArray<Paper>,
-  apiKey: Redacted.Redacted,
-  httpClient: HttpClient.HttpClient,
-): Effect.Effect<ReadonlyArray<Paper & { embedding: Embedding }>, UnableToGetSurveyPapers> =>
-  Effect.gen(function* () {
-    const input = pipe(
-      papers,
-      Array.map((paper) => `${paper.title}\n\n${paper.abstract}`),
-    );
-
-    const request = yield* pipe(
-      HttpClientRequest.post("https://openrouter.ai/api/v1/embeddings"),
-      HttpClientRequest.bearerToken(apiKey),
-      HttpClientRequest.bodyJson({ model: "thenlper/gte-large", input }),
-    );
-
-    const response = yield* httpClient.execute(request);
-
-    const parsed = yield* HttpClientResponse.schemaBodyJson(EmbeddingResponse)(response);
-
-    return parsed.data.map((item) => ({
-      ...papers[item.index],
-      embedding: new Float32Array(item.embedding),
-    }));
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
 const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
