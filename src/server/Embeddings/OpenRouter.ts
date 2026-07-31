@@ -37,6 +37,8 @@ export const generateEmbeddings = (
 
     const response = yield* httpClient.execute(request);
 
+    yield* HttpClientResponse.filterStatusOk(response);
+
     const parsed = yield* HttpClientResponse.schemaBodyJson(EmbeddingResponse)(response);
 
     return parsed.data.map((item) => ({
