@@ -9,7 +9,7 @@ import {
   type Paper,
 } from "./Shared";
 import { getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
-import { getRelatedDois } from "./Preprints";
+import { createMissingEmbeddings, getRelatedDois } from "./Preprints";
 
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
@@ -67,6 +67,10 @@ export const embeddingsLayer = Layer.effect(
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
           Effect.andThen(calcMean),
           Effect.andThen(getRelatedDois(500, sql)),
+          Effect.catchTag(
+            "UnableToAddPreprints",
+            ({ cause }) => new UnableToGetSurveyPapers({ cause }),
+          ),
           Effect.andThen(getTopMidRandom),
         );
 
@@ -78,7 +82,7 @@ export const embeddingsLayer = Layer.effect(
 
         return result;
       }),
-      addPreprints: () => new UnableToAddPreprints({ cause: "not implemented" }),
+      addPreprints: createMissingEmbeddings(apiKey, httpClient, sql),
     };
   }),
 );
