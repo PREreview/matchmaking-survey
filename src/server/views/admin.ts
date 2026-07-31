@@ -139,6 +139,15 @@ export function renderAdminPage({
         </form>
       </div>
       <div style="${SECTION_STYLE}">
+        <h2>Add preprints</h2>
+        <form method="post" action="/admin/add-preprints">
+          <label for="preprint-dois">Preprint DOIs</label>
+          <br />
+          <textarea name="dois" id="preprint-dois" required rows="3" style="width:100%;"></textarea>
+          <button class="button" type="submit">Add preprints</button>
+        </form>
+      </div>
+      <div style="${SECTION_STYLE}">
         <h2>Upload CSV</h2>
         <p>Expected columns: <code>name, orcid, title, abstract, doi</code></p>
         <form method="post" action="/admin/upload" enctype="multipart/form-data">

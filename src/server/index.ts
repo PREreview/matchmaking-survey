@@ -223,6 +223,31 @@ const adminPagesRouter = HttpRouter.empty
       }),
     ),
     HttpRouter.post(
+      "/add-preprints",
+      Effect.gen(function* () {
+        const { dois } = yield* pipe(
+          HttpServerRequest.HttpServerRequest,
+          Effect.andThen((request) => request.urlParamsBody),
+          Effect.andThen(
+            Schema.decode(
+              UrlParams.schemaRecord(
+                Schema.Struct({
+                  dois: Schema.compose(
+                    Schema.compose(Schema.Trim, Schema.split("\n")),
+                    Schema.NonEmptyArray(Schema.compose(Schema.Trim, Schema.NonEmptyString)),
+                  ),
+                }),
+              ),
+            ),
+          ),
+        );
+
+        yield* Admin.addPreprints(dois);
+
+        return yield* HttpServerResponse.redirect(`/admin`, { status: 303 });
+      }),
+    ),
+    HttpRouter.post(
       "/create-survey",
       Effect.gen(function* () {
         const orcid = yield* pipe(
