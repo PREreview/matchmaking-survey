@@ -48,7 +48,6 @@ type Embedding = Schema.Schema.Type<typeof PgVector>;
 const EmbeddingRow = Schema.Struct({
   doi: Schema.String,
   embedding: PgVector,
-  requestTimestamp: Schema.optional(Schema.DateTimeUtc),
 });
 
 const getStoredEmbedding = (
@@ -132,11 +131,8 @@ const storeEmbedding = (
   Effect.gen(function* () {
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
-      INSERT INTO documents (doi, embedding, request_timestamp)
-      VALUES (${doi}, ${encoded}::vector, NOW())
-      ON CONFLICT (doi) DO UPDATE SET
-        embedding = EXCLUDED.embedding,
-        request_timestamp = NOW()
+      INSERT INTO documents (doi, embedding)
+      VALUES (${doi}, ${encoded}::vector)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
