@@ -153,7 +153,7 @@ const getEmbeddingsGeneratingAsNeeded =
   (apiKey: string, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
   (inputPapers: ReadonlyArray<Paper>) =>
     Effect.gen(function* () {
-      const stored = yield* pipe(
+      const papersWithExistingEmbeddings = yield* pipe(
         inputPapers,
         Effect.forEach((paper) =>
           getStoredEmbedding(paper.doi, sql).pipe(
@@ -162,13 +162,13 @@ const getEmbeddingsGeneratingAsNeeded =
         ),
       );
 
-      const missingPapers = stored.flatMap(({ paper, embedding }) =>
+      const papersWithoutEmbeddings = papersWithExistingEmbeddings.flatMap(({ paper, embedding }) =>
         Option.isNone(embedding) ? [paper] : [],
       );
 
       const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
-        missingPapers.length > 0
-          ? yield* generateEmbeddings(missingPapers, apiKey, httpClient)
+        papersWithoutEmbeddings.length > 0
+          ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient)
           : [];
 
       yield* Effect.forEach(generated, (p) =>
@@ -176,7 +176,7 @@ const getEmbeddingsGeneratingAsNeeded =
       );
 
       const generatedByDoi = new Map(generated.map((p) => [p.doi, p.embedding]));
-      const allEmbeddings = stored.flatMap(({ paper, embedding }) => {
+      const allEmbeddings = papersWithExistingEmbeddings.flatMap(({ paper, embedding }) => {
         if (Option.isSome(embedding)) return [embedding.value];
         const e = generatedByDoi.get(paper.doi);
         return e !== undefined ? [e] : [];
