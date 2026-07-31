@@ -49,7 +49,6 @@ const EmbeddingRow = Schema.Struct({
   doi: Schema.String,
   embedding: PgVector,
   requestTimestamp: Schema.optional(Schema.DateTimeUtc),
-  frontmatterHash: Schema.String,
   language: Schema.String,
 });
 
@@ -129,17 +128,15 @@ const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
 const storeEmbedding = (
   doi: Doi,
   embedding: Embedding,
-  frontmatterHash: string,
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, UnableToGetSurveyPapers> =>
   Effect.gen(function* () {
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
-      INSERT INTO documents (doi, embedding, frontmatter_hash, language, request_timestamp)
-      VALUES (${doi}, ${encoded}::vector, ${frontmatterHash}, 'en', NOW())
+      INSERT INTO documents (doi, embedding, language, request_timestamp)
+      VALUES (${doi}, ${encoded}::vector, 'en', NOW())
       ON CONFLICT (doi) DO UPDATE SET
         embedding = EXCLUDED.embedding,
-        frontmatter_hash = EXCLUDED.frontmatter_hash,
         request_timestamp = NOW()
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
@@ -156,9 +153,6 @@ const getRelatedDois =
     `;
       return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);
     }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
-
-const contentHash = (frontmatter: { title: string; abstract: string }) =>
-  `${frontmatter.title.length.toString(16)}:${frontmatter.abstract.length.toString(16)}`;
 
 const getEmbeddingsGeneratingAsNeeded =
   (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
@@ -182,9 +176,7 @@ const getEmbeddingsGeneratingAsNeeded =
           ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient)
           : [];
 
-      yield* Effect.forEach(generated, (p) =>
-        storeEmbedding(p.doi, p.embedding, contentHash(p), sql),
-      );
+      yield* Effect.forEach(generated, (p) => storeEmbedding(p.doi, p.embedding, sql));
 
       const generatedByDoi = new Map(generated.map((p) => [p.doi, p.embedding]));
       const allEmbeddings = papersWithExistingEmbeddings.flatMap(({ paper, embedding }) => {
