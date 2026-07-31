@@ -1,7 +1,13 @@
 import { HttpClient } from "@effect/platform";
 import { SqlClient } from "@effect/sql";
 import { Array, Config, Context, Effect, Layer, pipe } from "effect";
-import { UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
+import {
+  UnableToGetSurveyPapers,
+  UnableToAddPreprints,
+  type Doi,
+  type Embedding,
+  type Paper,
+} from "./Shared";
 import { getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
 import { getRelatedDois } from "./Preprints";
 
@@ -11,6 +17,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
     getSurveyPapers: (
       input: Array.NonEmptyReadonlyArray<Paper>,
     ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
+    addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }
 >() {}
 
@@ -71,6 +78,7 @@ export const embeddingsLayer = Layer.effect(
 
         return result;
       }),
+      addPreprints: () => new UnableToAddPreprints({ cause: "not implemented" }),
     };
   }),
 );
