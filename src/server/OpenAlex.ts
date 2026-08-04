@@ -80,7 +80,10 @@ const getWorks = (
 
           const parsed = yield* HttpClientResponse.schemaBodyJson(ListOfWorksSchema)(response);
 
-          return Array.filter(parsed.results, (work): work is Work => work.abstract !== null);
+          return Array.filter(
+            parsed.results,
+            (work): work is Work => work.title !== "" && work.abstract !== null,
+          );
         }),
         { concurrency: "inherit" },
       ).pipe(Effect.andThen(Array.flatten));
@@ -102,7 +105,7 @@ const WorkSchema = Schema.Struct({
       encode: (doi) => Tuple.make("https://doi.org/" as const, doi),
     },
   ),
-  title: Schema.compose(Schema.Trim, Schema.NonEmptyString),
+  title: Schema.Trim,
   abstract: Schema.propertySignature(
     Schema.NullOr(
       Schema.transformOrFail(
