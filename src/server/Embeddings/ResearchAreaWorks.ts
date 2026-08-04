@@ -20,7 +20,7 @@ const getStoredEmbedding = (
 
     if (rows.length === 0) return Option.none();
 
-    const decoded = yield* Schema.decodeUnknown(EmbeddingRow)(rows[0]);
+    const decoded = yield* Schema.decodeUnknown(EmbeddingRow.pick("embedding"))(rows[0]);
 
     return Option.some(decoded.embedding);
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
