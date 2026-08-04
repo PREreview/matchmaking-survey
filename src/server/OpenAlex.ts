@@ -76,6 +76,7 @@ const getWorks = (
           );
 
           const response = yield* httpClient.execute(request);
+          yield* HttpClientResponse.filterStatusOk(response);
 
           const parsed = yield* HttpClientResponse.schemaBodyJson(ListOfWorksSchema)(response);
 
