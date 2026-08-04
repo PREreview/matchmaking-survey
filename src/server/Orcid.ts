@@ -104,7 +104,7 @@ const PersonalDetailsSchema = Schema.Struct({
 
 const WorkSchema = Schema.Struct({
   "external-ids": Schema.Struct({
-    "external-id": Schema.NonEmptyArray(
+    "external-id": Schema.Array(
       Schema.Struct({
         "external-id-type": Schema.NonEmptyTrimmedString,
         "external-id-value": Schema.NonEmptyTrimmedString,
