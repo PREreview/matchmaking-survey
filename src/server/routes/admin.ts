@@ -60,9 +60,6 @@ export const createSurvey = (orcidId: string) =>
     const embeddings = yield* Embeddings;
     const openAlex = yield* OpenAlex;
 
-    const token = randomUUID();
-    const batch = yield* Db.createBatch;
-
     const orcidProfile = yield* orcid.getProfile(orcidId);
     if (!Array.isNonEmptyReadonlyArray(orcidProfile.works)) {
       return yield* new UnableToCreateSurvey({
@@ -72,6 +69,9 @@ export const createSurvey = (orcidId: string) =>
     const works = yield* openAlex.getWorks(orcidProfile.works);
     const surveyPaperDois = yield* embeddings.getSurveyPapers(works);
     const surveyPapers = yield* openAlex.getWorks(surveyPaperDois);
+
+    const token = randomUUID();
+    const batch = yield* Db.createBatch;
 
     const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
 
