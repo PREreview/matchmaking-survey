@@ -5,6 +5,7 @@ import {
   HttpServer,
   HttpServerRequest,
   HttpServerResponse,
+  Multipart,
   UrlParams,
 } from "@effect/platform";
 import { NodeContext, NodeHttpClient, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
@@ -275,7 +276,7 @@ const adminPagesRouter = HttpRouter.empty
         const parts = yield* req.multipart;
         const filePart = parts["csv"];
         const file = Array.isArray(filePart) ? filePart[0] : filePart;
-        if (!file || typeof file === "string") {
+        if (!Multipart.isPersistedFile(file)) {
           return htmlResponse("Missing csv file", 400);
         }
         const csvText = yield* fs.readFileString(file.path);
