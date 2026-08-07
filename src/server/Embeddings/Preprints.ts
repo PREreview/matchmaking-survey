@@ -31,11 +31,12 @@ const storeEmbedding = (
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
-export const ensurePreprintsTableExists = (
+export const dropThenCreatePreprintsTable = (
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, SqlError.SqlError> =>
   sql`
-    CREATE TABLE IF NOT EXISTS preprints (
+    DROP TABLE IF EXISTS preprints;
+    CREATE TABLE preprints (
       doi VARCHAR PRIMARY KEY,
       embedding VECTOR(1024)
     )

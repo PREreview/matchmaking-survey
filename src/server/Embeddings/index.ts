@@ -8,10 +8,10 @@ import {
   type Paper,
 } from "./Shared";
 import {
-  ensureResearchAreaWorksTableExists,
+  dropThenCreateResearchAreaWorks,
   getEmbeddingsGeneratingAsNeeded,
 } from "./ResearchAreaWorks";
-import { createMissingEmbeddings, ensurePreprintsTableExists, getRelatedDois } from "./Preprints";
+import { createMissingEmbeddings, dropThenCreatePreprintsTable, getRelatedDois } from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
 
 export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
@@ -79,7 +79,7 @@ export const embeddingsLayer = Layer.effect(
     const httpClient = yield* HttpClient.HttpClient;
     const apiKey = yield* Config.redacted("OPENROUTER_API_KEY");
 
-    yield* Effect.all([ensurePreprintsTableExists(sql), ensureResearchAreaWorksTableExists(sql)], {
+    yield* Effect.all([dropThenCreatePreprintsTable(sql), dropThenCreateResearchAreaWorks(sql)], {
       concurrency: "inherit",
     });
 
