@@ -39,21 +39,33 @@ export const dropThenCreatePreprintsTable = (
     CREATE TABLE preprints (
       doi VARCHAR PRIMARY KEY,
       embedding HALFVEC(1024)
-    )
+    );
+    CREATE INDEX ON preprints USING hnsw (embedding halfvec_cosine_ops)
   `;
 
 export const getRelatedDois =
   (limit: number, sql: SqlClient.SqlClient) =>
   (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToAddPreprints> =>
-    Effect.gen(function* () {
-      const encoded = Schema.encodeSync(PgVector)(mean);
-      const rows = yield* sql`
-      SELECT doi FROM preprints
-      ORDER BY embedding <=> ${encoded}::halfvec
-      LIMIT ${limit}
-    `;
-      return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);
-    }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
+    sql
+      .withTransaction(
+        Effect.gen(function* () {
+          // The HNSW index only searches an ef_search-sized candidate list per
+          // query; without raising it to at least `limit`, it silently returns
+          // fewer rows than requested once the planner uses the index.
+          yield* sql`SET LOCAL hnsw.ef_search = ${sql.literal(String(limit))}`;
+
+          const encoded = Schema.encodeSync(PgVector)(mean);
+          return yield* sql`
+            SELECT doi FROM preprints
+            ORDER BY embedding <=> ${encoded}::halfvec
+            LIMIT ${limit}
+          `;
+        }),
+      )
+      .pipe(
+        Effect.map((rows) => rows.map((row) => (row as unknown as { doi: string }).doi as Doi)),
+        Effect.mapError((cause) => new UnableToAddPreprints({ cause })),
+      );
 
 export const createMissingEmbeddings =
   (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
