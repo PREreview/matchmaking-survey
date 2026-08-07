@@ -24,6 +24,9 @@ import urllib.request
 MAILTO = "engineering@prereview.org"
 API_BASE = "https://api.openalex.org/works"
 SOURCE_ID_RE = re.compile(r"^locations\.source\.id:[sS][0-9]{10}$")
+DOT_V_RE = re.compile(r"^(.+)\.(v\d+)$", re.IGNORECASE)    # e.g. 10.20944/preprints….v3
+SLASH_V_RE = re.compile(r"^(.+)/(v\d+)$", re.IGNORECASE)   # e.g. 10.26434/chemrxiv-…/v3
+HYPHEN_V_RE = re.compile(r"^(.+)-(v\d+)$", re.IGNORECASE)  # e.g. 10.26434/chemrxiv-…-v3 (older ChemRxiv style)
 
 
 def field_filter(spec):
@@ -280,14 +283,57 @@ def cmd_status(args):
     conn.close()
 
 
+def dedup_versions(dois):
+    """Keep only the highest-versioned DOI per work for .vN, /vN, and -vN patterns.
+
+    ChemRxiv uses both /vN (current) and -vN (older style) for the same paper;
+    both are merged into one group keyed by the same bare base so the single
+    highest version wins across formats.
+
+    Unversioned DOIs whose bare form is also a versioned base (ChemRxiv
+    "latest" pointers) are suppressed in favour of the highest explicit version.
+    """
+    dot_v = {}    # base -> (version_num, doi)
+    slashhy_v = {} # base -> (version_num, doi)  covers /vN and -vN
+    plain = []
+
+    for doi in dois:
+        m = DOT_V_RE.match(doi)
+        if m:
+            base, num = m.group(1), int(m.group(2)[1:])
+            if num > dot_v.get(base, (0,))[0]:
+                dot_v[base] = (num, doi)
+            continue
+        m = SLASH_V_RE.match(doi)
+        if m:
+            base, num = m.group(1), int(m.group(2)[1:])
+            if num > slashhy_v.get(base, (0,))[0]:
+                slashhy_v[base] = (num, doi)
+            continue
+        m = HYPHEN_V_RE.match(doi)
+        if m:
+            base, num = m.group(1), int(m.group(2)[1:])
+            if num > slashhy_v.get(base, (0,))[0]:
+                slashhy_v[base] = (num, doi)
+            continue
+        plain.append(doi)
+
+    versioned_bases = set(slashhy_v)
+    result = [doi for doi in plain if doi not in versioned_bases]
+    result += [doi for _, doi in dot_v.values()]
+    result += [doi for _, doi in slashhy_v.values()]
+    return sorted(result)
+
+
 def cmd_export(args):
     conn = sqlite3.connect(args.db)
     init_db(conn)
     rows = conn.execute("SELECT doi FROM dois ORDER BY doi").fetchall()
+    dois = dedup_versions([doi for (doi,) in rows])
     with open(args.output, "w") as f:
-        for (doi,) in rows:
+        for doi in dois:
             f.write(doi + "\n")
-    print(f"Wrote {len(rows)} DOIs to {args.output}", file=sys.stderr)
+    print(f"Wrote {len(dois)} DOIs to {args.output} ({len(rows) - len(dois)} version duplicates removed)", file=sys.stderr)
     conn.close()
 
 
