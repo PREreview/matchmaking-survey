@@ -8,6 +8,10 @@ export class UnableToAddPreprints extends Data.TaggedError("UnableToAddPreprints
   cause?: unknown;
 }> {}
 
+export class UnableToDetectLanguage extends Data.TaggedError("UnableToDetectLanguage")<{
+  cause?: unknown;
+}> {}
+
 export type Doi = string;
 
 export type Paper = { doi: Doi; title: string; abstract: string };

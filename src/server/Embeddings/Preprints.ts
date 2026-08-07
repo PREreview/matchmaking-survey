@@ -3,6 +3,8 @@ import { PgVector, UnableToAddPreprints, type Doi, type Embedding, type Paper } 
 import type { SqlClient, SqlError } from "@effect/sql";
 import type { HttpClient } from "@effect/platform";
 import { generateEmbeddings } from "./OpenRouter";
+import type { LanguageCode } from "iso-639-1";
+import { detectLanguage } from "./Cld";
 
 const hasStoredEmbedding = (
   doi: Doi,
@@ -20,14 +22,15 @@ const hasStoredEmbedding = (
 
 const storeEmbedding = (
   doi: Doi,
+  language: LanguageCode,
   embedding: Embedding,
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, UnableToAddPreprints> =>
   Effect.gen(function* () {
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
-      INSERT INTO preprints (doi, embedding)
-      VALUES (${doi}, ${encoded}::halfvec)
+      INSERT INTO preprints (doi, language, embedding)
+      VALUES (${doi}, ${language}, ${encoded}::halfvec)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
@@ -38,6 +41,7 @@ export const dropThenCreatePreprintsTable = (
     DROP TABLE IF EXISTS preprints;
     CREATE TABLE preprints (
       doi VARCHAR PRIMARY KEY,
+      language CHAR(2) NOT NULL,
       embedding HALFVEC(1024)
     );
     CREATE INDEX ON preprints USING hnsw (embedding halfvec_cosine_ops)
@@ -94,5 +98,18 @@ export const createMissingEmbeddings =
             )
           : [];
 
-      yield* Effect.forEach(generated, (p) => storeEmbedding(p.doi, p.embedding, sql));
+      const generatedWithLanguage = yield* pipe(
+        generated,
+        Effect.forEach((w) =>
+          detectLanguage(w.title).pipe(Effect.map((language) => ({ ...w, language }))),
+        ),
+        Effect.catchTag(
+          "UnableToDetectLanguage",
+          ({ cause }) => new UnableToAddPreprints({ cause }),
+        ),
+      );
+
+      yield* Effect.forEach(generatedWithLanguage, (p) =>
+        storeEmbedding(p.doi, p.language, p.embedding, sql),
+      );
     });
