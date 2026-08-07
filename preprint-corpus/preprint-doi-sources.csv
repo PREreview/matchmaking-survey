@@ -1,0 +1,20 @@
+Server,Include?,OpenAlex source ID,include since,primary_topic.field.id,publication count
+arXiv,Y,locations.source.id:S4306400194,2026-07-01,17,20846
+arXiv,Y,locations.source.id:S4306400194,2026-05-01,22,20351
+arXiv,Y,locations.source.id:S4306400194,2026-05-01,26,22724
+arXiv,Y,locations.source.id:S4306400194,2026-06-01,31,24960
+arXiv,Y,locations.source.id:S4306400194,2026-05-01,"exclude(17,22,26,31)",29729
+bioRxiv,Y,locations.source.id:S4306402567,2026-02-01,all,27674
+ChemRxiv,Y,locations.source.id:s4393918830,2026-01-01,all,7506
+EarthArXiv,Y,doi_starts_with:10.31223/,2026-01-01,all,1014
+EcoEvoRxiv,Y,doi_starts_with:10.32942/,2026-01-01,all,668
+EdArXiv,Y,doi_starts_with:10.35542/osf.io/,2026-01-01,all,1001
+engrXiv,Y,doi_starts_with:10.31224/,2026-01-01,all,844
+medRxiv,Y,locations.source.id:s3005729997,2026-01-01,all,9743
+MetaArXiv,Y,doi_starts_with:10.31222/osf.io/,2026-01-01,all,188
+Preprints.org,Y,locations.source.id:s6309402219,2026-01-01,all,16810
+PsyArXiv,Y,locations.source.id:s4306401687,2026-01-01,all,6182
+PsychArchives,Y,doi_starts_with:10.23668/psycharchives.,2026-01-01,all,204
+SciELO Preprints,Y,doi_starts_with:10.1590/scielopreprints.,2026-01-01,all,657
+SocArXiv,Y,locations.source.id:s4306401238,2026-01-01,all,2811
+TechRxiv,Y,doi_starts_with:10.36227/techrxiv.,2026-01-01,all,1521
