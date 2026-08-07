@@ -27,7 +27,7 @@ const storeEmbedding = (
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
       INSERT INTO preprints (doi, embedding)
-      VALUES (${doi}, ${encoded}::vector)
+      VALUES (${doi}, ${encoded}::halfvec)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
@@ -38,7 +38,7 @@ export const dropThenCreatePreprintsTable = (
     DROP TABLE IF EXISTS preprints;
     CREATE TABLE preprints (
       doi VARCHAR PRIMARY KEY,
-      embedding VECTOR(1024)
+      embedding HALFVEC(1024)
     )
   `;
 
@@ -49,7 +49,7 @@ export const getRelatedDois =
       const encoded = Schema.encodeSync(PgVector)(mean);
       const rows = yield* sql`
       SELECT doi FROM preprints
-      ORDER BY embedding <=> ${encoded}::vector
+      ORDER BY embedding <=> ${encoded}::halfvec
       LIMIT ${limit}
     `;
       return rows.map((row) => (row as unknown as { doi: string }).doi as Doi);

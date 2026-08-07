@@ -34,7 +34,7 @@ const storeEmbedding = (
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
       INSERT INTO research_area_works (doi, embedding)
-      VALUES (${doi}, ${encoded}::vector)
+      VALUES (${doi}, ${encoded}::halfvec)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
@@ -45,7 +45,7 @@ export const dropThenCreateResearchAreaWorks = (
     DROP TABLE IF EXISTS research_area_works;
     CREATE TABLE IF NOT EXISTS research_area_works (
       doi VARCHAR PRIMARY KEY,
-      embedding VECTOR(1024)
+      embedding HALFVEC(1024)
     )
   `;
 
