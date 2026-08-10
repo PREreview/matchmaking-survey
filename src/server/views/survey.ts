@@ -1,5 +1,7 @@
 import { html, layout, raw, type Html } from "./html.js";
 import { RATING_LABELS, RATING_UNSURE_LABEL } from "../ratingLabels.js";
+import type { LanguageCode } from "iso-639-1";
+import { Array } from "effect";
 
 const RATING_ERROR = "Select relevant this paper is to your research area";
 
@@ -25,6 +27,8 @@ export function renderLandingPage() {
 }
 
 export function renderStartPage() {
+  const languages = ["en", "es", "pt"] satisfies Array.NonEmptyReadonlyArray<LanguageCode>;
+
   return layout({
     title: "PREreview matchmaking survey",
     body: html`<main class="survey">
@@ -32,6 +36,28 @@ export function renderStartPage() {
       <form method="post" action="/">
         <p><label for="orcid-id">What’s your ORCID iD?</label></p>
         <p><input id="orcid-id" type="text" name="orcid-id" required /></p>
+
+        <fieldset role="group">
+          <legend>What languages can the title and abstracts of the papers we find be in?</legend>
+
+          ${Array.map(
+            languages,
+            (language) => html`
+              <div class="language-option">
+                <input
+                  type="checkbox"
+                  id="language-${language}"
+                  name="language"
+                  value="${language}"
+                />
+                <label for="language-${language}"
+                  >${new Intl.DisplayNames(["en"], { type: "language" }).of(language)}</label
+                >
+              </div>
+            `,
+          )}
+        </fieldset>
+
         <p><button class="button" type="submit">Continue</button></p>
       </form>
     </main>`,

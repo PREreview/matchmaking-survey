@@ -422,12 +422,17 @@ export const app = HttpRouter.empty.pipe(
         return htmlResponse(SurveyViews.renderNotFoundPage().__html, 404);
       }
 
-      const orcid = yield* pipe(
+      const input = yield* pipe(
         HttpServerRequest.HttpServerRequest,
         Effect.andThen((request) => request.urlParamsBody),
         Effect.andThen(
-          Schema.decode(
-            UrlParams.schemaRecord(Schema.Struct({ "orcid-id": Schema.NonEmptyTrimmedString })),
+          UrlParams.schemaStruct(
+            Schema.Struct({
+              "orcid-id": Schema.NonEmptyTrimmedString,
+              language: Schema.ArrayEnsure(Schema.Literal("en", "es", "pt")).pipe(
+                Schema.filter(Array.isNonEmptyReadonlyArray),
+              ),
+            }),
           ),
         ),
       );
@@ -435,8 +440,8 @@ export const app = HttpRouter.empty.pipe(
       const executionId = yield* Admin.createSurvey.execute(
         {
           idempotencyKey: randomUUID(),
-          languages: ["en"],
-          orcidId: orcid["orcid-id"],
+          languages: input.language,
+          orcidId: input["orcid-id"],
         },
         { discard: true },
       );
