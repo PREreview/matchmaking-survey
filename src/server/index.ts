@@ -429,26 +429,32 @@ export const app = HttpRouter.empty.pipe(
 const port = Number(process.env.PORT ?? 3000);
 const dbFile = process.env.DB_FILE ?? "/data/survey.db";
 
-const ServerLive = app.pipe(
-  HttpServer.serve(HttpMiddleware.logger),
-  HttpServer.withLogAddress,
-  Layer.provide([embeddingsLayer, openAlexLayer, orcidLayer]),
-  Layer.provide(LoggingHttpClientLayer),
-  Layer.provide([
-    NodeHttpServer.layer(createServer, { port }),
-    NodeContext.layer,
-    NodeHttpClient.layer,
-  ]),
-);
+const ServerLive = app.pipe(HttpServer.serve(HttpMiddleware.logger), HttpServer.withLogAddress);
 
 const main = Db.migrate.pipe(
   Effect.andThen(Layer.launch(ServerLive)),
-  Effect.provide([
-    Db.sqliteLayer(dbFile),
-    EmbeddingsClient.layer.pipe(
-      Layer.provide(PgClient.layerConfig({ url: Config.redacted(Config.string("POSTGRES_URL")) })),
+  Effect.provide(
+    pipe(
+      Layer.mergeAll(embeddingsLayer, openAlexLayer, orcidLayer),
+      Layer.provideMerge(
+        Layer.mergeAll(
+          Db.sqliteLayer(dbFile),
+          EmbeddingsClient.layer.pipe(
+            Layer.provide(
+              PgClient.layerConfig({ url: Config.redacted(Config.string("POSTGRES_URL")) }),
+            ),
+          ),
+        ),
+      ),
+      Layer.provideMerge(
+        Layer.mergeAll(
+          NodeHttpServer.layer(createServer, { port }),
+          NodeContext.layer,
+          Layer.provide(LoggingHttpClientLayer, NodeHttpClient.layer),
+        ),
+      ),
     ),
-  ]),
+  ),
   Logger.withMinimumLogLevel(LogLevel.Debug),
 );
 
