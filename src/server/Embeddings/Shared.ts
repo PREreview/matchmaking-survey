@@ -1,4 +1,4 @@
-import { Data, pipe, Schema } from "effect";
+import { Data, Schema, Tuple } from "effect";
 import { Float32ArraySchema } from "../../Float32Array";
 
 export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
@@ -18,16 +18,16 @@ export type Doi = string;
 export type Paper = { doi: Doi; title: string; abstract: string };
 
 export const PgVector = Schema.transform(
-  Schema.String,
-  pipe(
-    Schema.split(","),
-    Schema.compose(Schema.Array(Schema.NumberFromString)),
-    Schema.compose(Float32ArraySchema),
+  Schema.TemplateLiteralParser(
+    "[",
+    Schema.compose(Schema.split(","), Schema.Array(Schema.NumberFromString)),
+    "]",
   ),
+  Float32ArraySchema,
   {
     strict: true,
-    decode: (raw) => raw.slice(1, -1),
-    encode: (dimensions) => `[${dimensions}]`,
+    decode: Tuple.at(1),
+    encode: (dimensions) => ["[" as const, dimensions, "]"] as const,
   },
 );
 
