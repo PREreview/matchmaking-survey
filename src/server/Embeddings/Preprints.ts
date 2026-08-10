@@ -34,17 +34,16 @@ const storeEmbedding = (
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
-export const dropThenCreatePreprintsTable = (
+export const ensurePreprintsTable = (
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, SqlError.SqlError> =>
   sql`
-    DROP TABLE IF EXISTS preprints;
-    CREATE TABLE preprints (
+    CREATE TABLE IF NOT EXISTS preprints (
       doi VARCHAR PRIMARY KEY,
       language CHAR(2) NOT NULL,
       embedding HALFVEC(1024)
     );
-    CREATE INDEX ON preprints USING hnsw (embedding halfvec_cosine_ops)
+    CREATE INDEX IF NOT EXISTS preprints_embedding_idx ON preprints USING hnsw (embedding halfvec_cosine_ops)
   `;
 
 export const getRelatedDois =

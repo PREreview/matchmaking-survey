@@ -1,11 +1,8 @@
 import { HttpClient } from "@effect/platform";
 import { Array, Config, Context, Effect, Layer, pipe } from "effect";
 import { UnableToGetSurveyPapers, UnableToAddPreprints, type Doi, type Paper } from "./Shared";
-import {
-  dropThenCreateResearchAreaWorks,
-  getEmbeddingsGeneratingAsNeeded,
-} from "./ResearchAreaWorks";
-import { createMissingEmbeddings, dropThenCreatePreprintsTable, getRelatedDois } from "./Preprints";
+import { ensureResearchAreaWorksTable, getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
+import { createMissingEmbeddings, ensurePreprintsTable, getRelatedDois } from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
 import { calcFloat32ArrayMean } from "../../Float32Array";
 
@@ -60,7 +57,7 @@ export const embeddingsLayer = Layer.effect(
     const httpClient = yield* HttpClient.HttpClient;
     const apiKey = yield* Config.redacted("OPENROUTER_API_KEY");
 
-    yield* Effect.all([dropThenCreatePreprintsTable(sql), dropThenCreateResearchAreaWorks(sql)], {
+    yield* Effect.all([ensurePreprintsTable(sql), ensureResearchAreaWorksTable(sql)], {
       concurrency: "inherit",
     });
 

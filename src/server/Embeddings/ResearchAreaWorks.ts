@@ -38,11 +38,10 @@ const storeEmbedding = (
     `;
   }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
 
-export const dropThenCreateResearchAreaWorks = (
+export const ensureResearchAreaWorksTable = (
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, SqlError.SqlError> =>
   sql`
-    DROP TABLE IF EXISTS research_area_works;
     CREATE TABLE IF NOT EXISTS research_area_works (
       doi VARCHAR PRIMARY KEY,
       embedding HALFVEC(1024)
