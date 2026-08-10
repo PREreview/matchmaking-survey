@@ -1,11 +1,14 @@
 import { parse } from "csv-parse/sync";
-import { Data, Array, Effect, Schema, flow, Struct } from "effect";
+import { Data, Array, Effect, Schema, flow, Struct, pipe } from "effect";
 import { randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
 import { OpenAlex } from "../OpenAlex.js";
 import { Orcid } from "../Orcid.js";
 import { Activity, Workflow } from "@effect/workflow";
+import iso6391 from "iso-639-1";
+
+const Iso6391Schema = pipe(Schema.String, Schema.filter(iso6391.validate));
 
 type CsvRow = {
   name: string;
@@ -60,6 +63,7 @@ export const createSurvey = Workflow.make({
   name: "CreateSurvey",
   payload: {
     idempotencyKey: Schema.UUID,
+    languages: Schema.NonEmptyArray(Iso6391Schema),
     orcidId: Schema.String,
   },
   success: Schema.Struct({
@@ -70,7 +74,7 @@ export const createSurvey = Workflow.make({
   idempotencyKey: flow(Struct.get("idempotencyKey"), String),
 });
 
-export const createSurveyLayer = createSurvey.toLayer(({ orcidId }) =>
+export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =>
   Activity.make({
     name: createSurvey.name,
     success: createSurvey.successSchema,
@@ -87,7 +91,7 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId }) =>
         });
       }
       const works = yield* openAlex.getWorks(orcidProfile.works);
-      const surveyPaperDois = yield* embeddings.getSurveyPapers(works);
+      const surveyPaperDois = yield* embeddings.getSurveyPapers(works, languages);
       const surveyPapers = yield* openAlex.getWorks(surveyPaperDois);
 
       const token = randomUUID();

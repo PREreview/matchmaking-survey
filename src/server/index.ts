@@ -276,6 +276,7 @@ const adminPagesRouter = HttpRouter.empty
         );
         const { batchId } = yield* Admin.createSurvey.execute({
           idempotencyKey: randomUUID(),
+          languages: ["en"],
           orcidId: orcid["orcid-id"],
         });
 
@@ -434,6 +435,7 @@ export const app = HttpRouter.empty.pipe(
       const executionId = yield* Admin.createSurvey.execute(
         {
           idempotencyKey: randomUUID(),
+          languages: ["en"],
           orcidId: orcid["orcid-id"],
         },
         { discard: true },

@@ -5,6 +5,7 @@ import { ensureResearchAreaWorksTable, getEmbeddingsGeneratingAsNeeded } from ".
 import { createMissingEmbeddings, ensurePreprintsTable, getRelatedDois } from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
 import { calcFloat32ArrayMean } from "../../Float32Array";
+import type { LanguageCode } from "iso-639-1";
 
 export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
   EmbeddingsClient,
@@ -27,6 +28,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
   {
     getSurveyPapers: (
       input: Array.NonEmptyReadonlyArray<Paper>,
+      languages: Array.NonEmptyReadonlyArray<LanguageCode>,
     ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }
@@ -62,12 +64,12 @@ export const embeddingsLayer = Layer.effect(
     });
 
     return {
-      getSurveyPapers: Effect.fnUntraced(function* (inputPapers) {
+      getSurveyPapers: Effect.fnUntraced(function* (inputPapers, languages) {
         const result = yield* pipe(
           inputPapers,
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
           Effect.andThen(calcFloat32ArrayMean),
-          Effect.andThen(getRelatedDois(500, sql)),
+          Effect.andThen(getRelatedDois(500, sql, languages)),
           Effect.catchTag(
             "UnableToAddPreprints",
             ({ cause }) => new UnableToGetSurveyPapers({ cause }),

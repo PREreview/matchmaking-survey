@@ -47,7 +47,7 @@ export const ensurePreprintsTable = (
   `;
 
 export const getRelatedDois =
-  (limit: number, sql: SqlClient.SqlClient) =>
+  (limit: number, sql: SqlClient.SqlClient, languages: ReadonlyArray<LanguageCode>) =>
   (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToAddPreprints> =>
     sql
       .withTransaction(
@@ -60,6 +60,7 @@ export const getRelatedDois =
           const encoded = Schema.encodeSync(PgVector)(mean);
           return yield* sql`
             SELECT doi FROM preprints
+            WHERE ${sql.in("language", languages)}
             ORDER BY embedding <=> ${encoded}::halfvec
             LIMIT ${limit}
           `;
