@@ -144,5 +144,5 @@ const invertAbstract: (abstract: Record<string, Array.NonEmptyReadonlyArray<numb
   );
 
 const ListOfWorksSchema = Schema.Struct({
-  results: Schema.NonEmptyArray(WorkSchema),
+  results: Schema.Array(WorkSchema),
 });
