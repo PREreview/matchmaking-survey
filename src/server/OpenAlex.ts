@@ -82,7 +82,8 @@ const getWorks = (
 
           return Array.filter(
             parsed.results,
-            (work): work is Work => work.title !== "" && work.abstract !== null,
+            (work): work is Work =>
+              typeof work.title === "string" && work.title !== "" && work.abstract !== null,
           );
         }),
         { concurrency: "inherit" },
@@ -105,7 +106,7 @@ const WorkSchema = Schema.Struct({
       encode: (doi) => Tuple.make("https://doi.org/" as const, doi),
     },
   ),
-  title: Schema.Trim,
+  title: Schema.NullOr(Schema.Trim),
   abstract: Schema.propertySignature(
     Schema.NullOr(
       Schema.transformOrFail(
