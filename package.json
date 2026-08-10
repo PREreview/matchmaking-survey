@@ -9,6 +9,7 @@
     "@effect/sql": "^0.52.1",
     "@effect/sql-pg": "^0.53.0",
     "@effect/sql-sqlite-node": "^0.53.0",
+    "@effect/workflow": "^0.19.1",
     "cld": "^2.10.1",
     "csv-parse": "^5.6.0",
     "effect": "^3.22.1",

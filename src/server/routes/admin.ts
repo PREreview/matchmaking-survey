@@ -1,10 +1,11 @@
 import { parse } from "csv-parse/sync";
-import { Data, Array, Effect } from "effect";
+import { Data, Array, Effect, Schema, flow, Struct } from "effect";
 import { randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
 import { OpenAlex } from "../OpenAlex.js";
 import { Orcid } from "../Orcid.js";
+import { Activity, Workflow } from "@effect/workflow";
 
 type CsvRow = {
   name: string;
@@ -24,9 +25,10 @@ export class MissingCsvColumnsError extends Data.TaggedError("MissingCsvColumnsE
   missing: string[];
 }> {}
 
-export class UnableToCreateSurvey extends Data.TaggedError("UnableToCreateSurvey")<{
-  cause?: unknown;
-}> {}
+export class UnableToCreateSurvey extends Schema.TaggedError<UnableToCreateSurvey>()(
+  "UnableToCreateSurvey",
+  { cause: Schema.optional(Schema.Defect) },
+) {}
 
 const getCsvHeaderColumns = (csvText: string): string[] => {
   const headerLine = csvText.split(/\r?\n/)[0] ?? "";
@@ -54,43 +56,63 @@ export const addPreprints = (dois: Array.NonEmptyReadonlyArray<string>) =>
     yield* embeddings.addPreprints(works);
   });
 
-export const createSurvey = (orcidId: string) =>
-  Effect.gen(function* () {
-    const orcid = yield* Orcid;
-    const embeddings = yield* Embeddings;
-    const openAlex = yield* OpenAlex;
+export const createSurvey = Workflow.make({
+  name: "CreateSurvey",
+  payload: {
+    idempotencyKey: Schema.UUID,
+    orcidId: Schema.String,
+  },
+  success: Schema.Struct({
+    batchId: Schema.Number,
+    token: Schema.UUID,
+  }),
+  error: UnableToCreateSurvey,
+  idempotencyKey: flow(Struct.get("idempotencyKey"), String),
+});
 
-    const orcidProfile = yield* orcid.getProfile(orcidId);
-    if (!Array.isNonEmptyReadonlyArray(orcidProfile.works)) {
-      return yield* new UnableToCreateSurvey({
-        cause: "no works on ORCID profile",
-      });
-    }
-    const works = yield* openAlex.getWorks(orcidProfile.works);
-    const surveyPaperDois = yield* embeddings.getSurveyPapers(works);
-    const surveyPapers = yield* openAlex.getWorks(surveyPaperDois);
+export const createSurveyLayer = createSurvey.toLayer(({ orcidId }) =>
+  Activity.make({
+    name: createSurvey.name,
+    success: createSurvey.successSchema,
+    error: createSurvey.errorSchema,
+    execute: Effect.gen(function* () {
+      const orcid = yield* Orcid;
+      const embeddings = yield* Embeddings;
+      const openAlex = yield* OpenAlex;
 
-    const token = randomUUID();
-    const batch = yield* Db.createBatch;
+      const orcidProfile = yield* orcid.getProfile(orcidId);
+      if (!Array.isNonEmptyReadonlyArray(orcidProfile.works)) {
+        return yield* new UnableToCreateSurvey({
+          cause: "no works on ORCID profile",
+        });
+      }
+      const works = yield* openAlex.getWorks(orcidProfile.works);
+      const surveyPaperDois = yield* embeddings.getSurveyPapers(works);
+      const surveyPapers = yield* openAlex.getWorks(surveyPaperDois);
 
-    const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
+      const token = randomUUID();
+      const batch = yield* Db.createBatch;
 
-    yield* Effect.all(
-      surveyPapers.map((paper, i) =>
-        Db.insertPaper(scientist.id, paper.doi, paper.title, paper.abstract, i),
+      const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
+
+      yield* Effect.all(
+        surveyPapers.map((paper, i) =>
+          Db.insertPaper(scientist.id, paper.doi, paper.title, paper.abstract, i),
+        ),
+      );
+
+      return { batchId: batch.id, token };
+    }).pipe(
+      Effect.catchTag(
+        "SqlError",
+        "UnableToGetProfile",
+        "UnableToGetSurveyPapers",
+        "UnableToGetWorks",
+        (cause) => new UnableToCreateSurvey({ cause }),
       ),
-    );
-
-    return { batchId: batch.id, token };
-  }).pipe(
-    Effect.catchTag(
-      "SqlError",
-      "UnableToGetProfile",
-      "UnableToGetSurveyPapers",
-      "UnableToGetWorks",
-      (cause) => new UnableToCreateSurvey({ cause }),
     ),
-  );
+  }),
+);
 
 export const importCsv = (csvText: string) =>
   Effect.gen(function* () {

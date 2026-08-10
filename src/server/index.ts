@@ -21,6 +21,8 @@ import { openAlexLayer } from "./OpenAlex.js";
 import { orcidLayer } from "./Orcid.js";
 import { PgClient } from "@effect/sql-pg";
 import { LoggingHttpClientLayer } from "./LoggingHttpClient.js";
+import { randomUUID } from "node:crypto";
+import { WorkflowEngine } from "@effect/workflow";
 
 function htmlResponse(html: string, status = 200) {
   return HttpServerResponse.text(html, { contentType: "text/html", status });
@@ -261,7 +263,10 @@ const adminPagesRouter = HttpRouter.empty
             ),
           ),
         );
-        const { batchId } = yield* Admin.createSurvey(orcid["orcid-id"]);
+        const { batchId } = yield* Admin.createSurvey.execute({
+          idempotencyKey: randomUUID(),
+          orcidId: orcid["orcid-id"],
+        });
 
         return yield* HttpServerResponse.redirect(`/admin?batch=${batchId}`, {
           status: 303,
@@ -415,7 +420,10 @@ export const app = HttpRouter.empty.pipe(
         ),
       );
 
-      const { token } = yield* Admin.createSurvey(orcid["orcid-id"]);
+      const { token } = yield* Admin.createSurvey.execute({
+        idempotencyKey: randomUUID(),
+        orcidId: orcid["orcid-id"],
+      });
 
       return yield* HttpServerResponse.redirect(`/s/${token}`, { status: 303 });
     }),
@@ -435,7 +443,8 @@ const main = Db.migrate.pipe(
   Effect.andThen(Layer.launch(ServerLive)),
   Effect.provide(
     pipe(
-      Layer.mergeAll(embeddingsLayer, openAlexLayer, orcidLayer),
+      Admin.createSurveyLayer,
+      Layer.provideMerge(Layer.mergeAll(embeddingsLayer, openAlexLayer, orcidLayer)),
       Layer.provideMerge(
         Layer.mergeAll(
           Db.sqliteLayer(dbFile),
@@ -451,6 +460,7 @@ const main = Db.migrate.pipe(
           NodeHttpServer.layer(createServer, { port }),
           NodeContext.layer,
           Layer.provide(LoggingHttpClientLayer, NodeHttpClient.layer),
+          WorkflowEngine.layerMemory,
         ),
       ),
     ),
