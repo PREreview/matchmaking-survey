@@ -82,7 +82,15 @@ export const createSurvey = (orcidId: string) =>
     );
 
     return { batchId: batch.id, token };
-  });
+  }).pipe(
+    Effect.catchTag(
+      "SqlError",
+      "UnableToGetProfile",
+      "UnableToGetSurveyPapers",
+      "UnableToGetWorks",
+      (cause) => new UnableToCreateSurvey({ cause }),
+    ),
+  );
 
 export const importCsv = (csvText: string) =>
   Effect.gen(function* () {
