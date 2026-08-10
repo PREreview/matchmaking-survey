@@ -86,7 +86,9 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
         const result = yield* Admin.createSurvey.poll(token);
 
         if (typeof result === "undefined" || result._tag === "Suspended") {
-          return htmlResponse(SurveyViews.renderCreatingSurveyPage().__html);
+          return htmlResponse(SurveyViews.renderCreatingSurveyPage().__html).pipe(
+            HttpServerResponse.setHeader("Refresh", "1"),
+          );
         }
 
         return Exit.match(result.exit, {

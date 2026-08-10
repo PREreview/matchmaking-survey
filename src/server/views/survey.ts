@@ -42,10 +42,9 @@ export function renderCreatingSurveyPage() {
   return layout({
     title: "Survey being created — PREreview",
     body: html`<main class="survey">
-      <p>
-        We’re creating your survey. This may take a moment. Refresh the page to see the latest
-        status.
-      </p>
+      <span class="loader"></span>
+
+      <p>We’re creating your survey. This may take a moment.</p>
     </main>`,
   });
 }
