@@ -9,7 +9,7 @@ import {
   UrlParams,
 } from "@effect/platform";
 import { NodeContext, NodeHttpClient, NodeHttpServer, NodeRuntime } from "@effect/platform-node";
-import { Array, Schema, pipe, Effect, Layer, Config, Logger, LogLevel } from "effect";
+import { Array, Schema, pipe, Effect, Layer, Config, Logger, LogLevel, Exit } from "effect";
 import { createServer } from "node:http";
 import * as Admin from "./routes/admin.js";
 import * as Survey from "./routes/survey.js";
@@ -83,7 +83,16 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
       const token = params["token"] ?? "";
       const state = yield* Survey.getSurveyState(token);
       if (!state) {
-        return htmlResponse(SurveyViews.renderNotFoundPage().__html, 404);
+        const result = yield* Admin.createSurvey.poll(token);
+
+        if (typeof result === "undefined" || result._tag === "Suspended") {
+          return htmlResponse(SurveyViews.renderCreatingSurveyPage().__html);
+        }
+
+        return Exit.match(result.exit, {
+          onFailure: () => htmlResponse(SurveyViews.renderFailedToCreateSurveyPage().__html, 500),
+          onSuccess: ({ token }) => HttpServerResponse.redirect(`/s/${token}`, { status: 303 }),
+        });
       }
       if (state.scientist.submitted_at) {
         return htmlResponse(SurveyViews.renderThankYouPage().__html);
@@ -420,12 +429,15 @@ export const app = HttpRouter.empty.pipe(
         ),
       );
 
-      const { token } = yield* Admin.createSurvey.execute({
-        idempotencyKey: randomUUID(),
-        orcidId: orcid["orcid-id"],
-      });
+      const executionId = yield* Admin.createSurvey.execute(
+        {
+          idempotencyKey: randomUUID(),
+          orcidId: orcid["orcid-id"],
+        },
+        { discard: true },
+      );
 
-      return yield* HttpServerResponse.redirect(`/s/${token}`, { status: 303 });
+      return yield* HttpServerResponse.redirect(`/s/${executionId}`, { status: 303 });
     }),
   ),
 );

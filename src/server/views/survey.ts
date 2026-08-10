@@ -38,6 +38,27 @@ export function renderStartPage() {
   });
 }
 
+export function renderCreatingSurveyPage() {
+  return layout({
+    title: "Survey being created — PREreview",
+    body: html`<main class="survey">
+      <p>
+        We’re creating your survey. This may take a moment. Refresh the page to see the latest
+        status.
+      </p>
+    </main>`,
+  });
+}
+
+export function renderFailedToCreateSurveyPage() {
+  return layout({
+    title: "Unable to create survey — PREreview",
+    body: html`<main class="survey">
+      <p>We were unable to create your survey. Please try again later.</p>
+    </main>`,
+  });
+}
+
 export function renderNotFoundPage() {
   return layout({
     title: "Survey not found — PREreview",
