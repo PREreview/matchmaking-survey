@@ -16,3 +16,17 @@ export const Float32ArraySchema = Schema.transform(
     encode: (array) => [...array],
   },
 );
+
+export const calcFloat32ArrayMean = (arrays: ReadonlyArray<Float32Array>): Float32Array => {
+  const length = arrays[0].length;
+  const sum = new Float32Array(length);
+  for (const array of arrays) {
+    for (let i = 0; i < length; i++) {
+      sum[i] += array[i];
+    }
+  }
+  for (let i = 0; i < length; i++) {
+    sum[i] /= arrays.length;
+  }
+  return sum;
+};

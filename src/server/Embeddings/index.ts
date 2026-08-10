@@ -1,18 +1,13 @@
 import { HttpClient } from "@effect/platform";
 import { Array, Config, Context, Effect, Layer, pipe } from "effect";
-import {
-  UnableToGetSurveyPapers,
-  UnableToAddPreprints,
-  type Doi,
-  type Embedding,
-  type Paper,
-} from "./Shared";
+import { UnableToGetSurveyPapers, UnableToAddPreprints, type Doi, type Paper } from "./Shared";
 import {
   dropThenCreateResearchAreaWorks,
   getEmbeddingsGeneratingAsNeeded,
 } from "./ResearchAreaWorks";
 import { createMissingEmbeddings, dropThenCreatePreprintsTable, getRelatedDois } from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
+import { calcFloat32ArrayMean } from "../../Float32Array";
 
 export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
   EmbeddingsClient,
@@ -39,20 +34,6 @@ export class Embeddings extends Context.Tag("Embeddings")<
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }
 >() {}
-
-const calcMean = (embeddings: ReadonlyArray<Embedding>): Embedding => {
-  const len = embeddings[0].length;
-  const sum = new Float32Array(len);
-  for (const emb of embeddings) {
-    for (let i = 0; i < len; i++) {
-      sum[i] += emb[i];
-    }
-  }
-  for (let i = 0; i < len; i++) {
-    sum[i] /= embeddings.length;
-  }
-  return sum;
-};
 
 const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => {
   const top7 = candidates.slice(0, 7);
@@ -88,7 +69,7 @@ export const embeddingsLayer = Layer.effect(
         const result = yield* pipe(
           inputPapers,
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
-          Effect.andThen(calcMean),
+          Effect.andThen(calcFloat32ArrayMean),
           Effect.andThen(getRelatedDois(500, sql)),
           Effect.catchTag(
             "UnableToAddPreprints",
