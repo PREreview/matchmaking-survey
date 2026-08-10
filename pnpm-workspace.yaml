@@ -4,3 +4,7 @@ allowBuilds:
   cld: true
   esbuild: false
   msgpackr-extract: false
+packageExtensions:
+  cld:
+    peerDependencies:
+      node-gyp: ^13
