@@ -81,7 +81,7 @@ export const createSurvey = (orcidId: string) =>
       ),
     );
 
-    return batch.id;
+    return { batchId: batch.id, token };
   });
 
 export const importCsv = (csvText: string) =>

@@ -261,7 +261,7 @@ const adminPagesRouter = HttpRouter.empty
             ),
           ),
         );
-        const batchId = yield* Admin.createSurvey(orcid["orcid-id"]);
+        const { batchId } = yield* Admin.createSurvey(orcid["orcid-id"]);
 
         return yield* HttpServerResponse.redirect(`/admin?batch=${batchId}`, {
           status: 303,
@@ -380,7 +380,46 @@ const adminPagesRouter = HttpRouter.empty
 export const app = HttpRouter.empty.pipe(
   HttpRouter.mount("/s", surveyPagesRouter),
   HttpRouter.mount("/admin", adminPagesRouter),
-  HttpRouter.get("/", Effect.succeed(htmlResponse(SurveyViews.renderLandingPage().__html))),
+  HttpRouter.get(
+    "/",
+    Effect.gen(function* () {
+      const openSurveyEnabled = yield* Config.boolean("ENABLE_OPEN_SURVEYS").pipe(
+        Config.withDefault(false),
+      );
+
+      if (!openSurveyEnabled) {
+        return yield* htmlResponse(SurveyViews.renderLandingPage().__html);
+      }
+
+      return yield* htmlResponse(SurveyViews.renderStartPage().__html);
+    }),
+  ),
+  HttpRouter.post(
+    "/",
+    Effect.gen(function* () {
+      const openSurveyEnabled = yield* Config.boolean("ENABLE_OPEN_SURVEYS").pipe(
+        Config.withDefault(false),
+      );
+
+      if (!openSurveyEnabled) {
+        return htmlResponse(SurveyViews.renderNotFoundPage().__html, 404);
+      }
+
+      const orcid = yield* pipe(
+        HttpServerRequest.HttpServerRequest,
+        Effect.andThen((request) => request.urlParamsBody),
+        Effect.andThen(
+          Schema.decode(
+            UrlParams.schemaRecord(Schema.Struct({ "orcid-id": Schema.NonEmptyTrimmedString })),
+          ),
+        ),
+      );
+
+      const { token } = yield* Admin.createSurvey(orcid["orcid-id"]);
+
+      return yield* HttpServerResponse.redirect(`/s/${token}`, { status: 303 });
+    }),
+  ),
 );
 
 // ---------------------------------------------------------------------------

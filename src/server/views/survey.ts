@@ -24,6 +24,20 @@ export function renderLandingPage() {
   });
 }
 
+export function renderStartPage() {
+  return layout({
+    title: "PREreview matchmaking survey",
+    body: html`<main class="survey">
+      <h1>PREreview matchmaking survey</h1>
+      <form method="post" action="/">
+        <p><label for="orcid-id">What’s your ORCID iD?</label></p>
+        <p><input id="orcid-id" type="text" name="orcid-id" required /></p>
+        <p><button class="button" type="submit">Continue</button></p>
+      </form>
+    </main>`,
+  });
+}
+
 export function renderNotFoundPage() {
   return layout({
     title: "Survey not found — PREreview",
