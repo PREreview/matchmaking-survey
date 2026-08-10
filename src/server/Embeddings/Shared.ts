@@ -27,7 +27,7 @@ export const PgVector = Schema.transform(
   {
     strict: true,
     decode: Tuple.at(1),
-    encode: (dimensions) => ["[" as const, dimensions, "]"] as const,
+    encode: (dimensions) => ["[", dimensions, "]"] as const,
   },
 );
 
