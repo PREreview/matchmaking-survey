@@ -1,11 +1,12 @@
 import { HttpClientRequest, HttpClientResponse, type HttpClient } from "@effect/platform";
 import { Array, Effect, pipe, Redacted, Schema } from "effect";
 import { UnableToGetSurveyPapers, type Embedding, type Paper } from "./Shared";
+import { Float32ArraySchema } from "../../Float32Array";
 
 const EmbeddingResponse = Schema.Struct({
   data: Schema.Array(
     Schema.Struct({
-      embedding: Schema.Array(Schema.Number),
+      embedding: Float32ArraySchema,
       index: Schema.Number,
       object: Schema.Literal("embedding"),
     }),
@@ -47,7 +48,7 @@ export const generateEmbeddings = (
 
         return parsed.data.map((item) => ({
           ...papers[item.index],
-          embedding: new Float32Array(item.embedding),
+          embedding: item.embedding,
         }));
       }),
     ).pipe(Effect.andThen(Array.flatten));

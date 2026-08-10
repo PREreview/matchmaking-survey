@@ -1,4 +1,5 @@
-import { Data, Schema } from "effect";
+import { Data, pipe, Schema } from "effect";
+import { Float32ArraySchema } from "../../Float32Array";
 
 export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
   cause?: unknown;
@@ -18,14 +19,15 @@ export type Paper = { doi: Doi; title: string; abstract: string };
 
 export const PgVector = Schema.transform(
   Schema.String,
-  Schema.declare((u): u is Float32Array => u instanceof Float32Array, {
-    identifier: "Float32Array",
-    description: "A Float32Array of embedding dimensions",
-  }),
+  pipe(
+    Schema.split(","),
+    Schema.compose(Schema.Array(Schema.NumberFromString)),
+    Schema.compose(Float32ArraySchema),
+  ),
   {
-    decode: (raw: string): Float32Array =>
-      new Float32Array(raw.slice(1, -1).split(",").map(Number)),
-    encode: (arr: Float32Array): string => `[${[...arr].join(",")}]`,
+    strict: true,
+    decode: (raw) => raw.slice(1, -1),
+    encode: (dimensions) => `[${dimensions}]`,
   },
 );
 
