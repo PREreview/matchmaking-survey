@@ -76,6 +76,7 @@ const GetWorkDois = (
               cursor,
             }),
           }),
+        Effect.andThen(HttpClientResponse.filterStatusOk),
         Effect.andThen(HttpClientResponse.schemaBodyJson(ListResponse(DoiFromWorkSchema))),
         Effect.scoped,
         Effect.andThen((response) => [response.results, response.meta.next_cursor]),
