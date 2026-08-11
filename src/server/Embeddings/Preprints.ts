@@ -5,6 +5,7 @@ import {
   UnableToQuery,
   type Doi,
   type Embedding,
+  type OrcidId,
   type Paper,
 } from "./Shared";
 import type { SqlClient, SqlError } from "@effect/sql";
@@ -30,14 +31,15 @@ const hasStoredEmbedding = (
 const storeEmbedding = (
   doi: Doi,
   language: LanguageCode,
+  authors: ReadonlyArray<OrcidId>,
   embedding: Embedding,
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, UnableToAddPreprints> =>
   Effect.gen(function* () {
     const encoded = Schema.encodeSync(PgVector)(embedding);
     yield* sql`
-      INSERT INTO preprints (doi, language, embedding)
-      VALUES (${doi}, ${language}, ${encoded}::halfvec)
+      INSERT INTO preprints (doi, language, authors, embedding)
+      VALUES (${doi}, ${language}, ${authors}, ${encoded}::halfvec)
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
@@ -48,6 +50,7 @@ export const ensurePreprintsTable = (
     CREATE TABLE IF NOT EXISTS preprints (
       doi VARCHAR PRIMARY KEY,
       language CHAR(2) NOT NULL,
+      authors CHAR(19)[] NOT NULL,
       embedding HALFVEC(1024)
     );
     CREATE INDEX IF NOT EXISTS preprints_embedding_idx ON preprints USING hnsw (embedding halfvec_cosine_ops)
@@ -58,6 +61,7 @@ export const getRelatedDois =
     limit: number,
     sql: SqlClient.SqlClient,
     languages: ReadonlyArray<LanguageCode>,
+    inputOrcidId: OrcidId,
     inputDois: Array.NonEmptyReadonlyArray<Doi>,
   ) =>
   (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToQuery> =>
@@ -72,7 +76,9 @@ export const getRelatedDois =
           const encoded = Schema.encodeSync(PgVector)(mean);
           return yield* sql`
             SELECT doi FROM preprints
-            WHERE ${sql.in("language", languages)} AND NOT ${sql.in("doi", inputDois)}
+            WHERE ${sql.in("language", languages)}
+              AND NOT (${inputOrcidId} = ANY(authors))
+              AND NOT ${sql.in("doi", inputDois)}
             ORDER BY embedding <=> ${encoded}::halfvec
             LIMIT ${limit}
           `;
@@ -122,6 +128,6 @@ export const createMissingEmbeddings =
       );
 
       yield* Effect.forEach(generatedWithLanguage, (p) =>
-        storeEmbedding(p.doi, p.language, p.embedding, sql),
+        storeEmbedding(p.doi, p.language, p.authors, p.embedding, sql),
       );
     });

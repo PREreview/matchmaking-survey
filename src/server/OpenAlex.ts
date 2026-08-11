@@ -15,6 +15,7 @@ import {
   Schema,
   Struct,
   Tuple,
+  Option,
 } from "effect";
 
 export class UnableToGetWorks extends Data.TaggedError("UnableToGetWorks")<{
@@ -23,10 +24,13 @@ export class UnableToGetWorks extends Data.TaggedError("UnableToGetWorks")<{
 
 type Doi = string;
 
+type OrcidId = string;
+
 type Work = {
   doi: Doi;
   title: string;
   abstract: string;
+  authors: ReadonlyArray<OrcidId>;
 };
 
 export class OpenAlex extends Context.Tag("OpenAlex")<
@@ -126,6 +130,33 @@ const WorkSchema = Schema.Struct({
       ),
     ),
   ).pipe(Schema.fromKey("abstract_inverted_index")),
+  authors: Schema.propertySignature(
+    Schema.transform(
+      Schema.Array(
+        Schema.Struct({
+          author: Schema.Struct({
+            orcid: Schema.NullOr(
+              Schema.transform(
+                Schema.TemplateLiteralParser("https://orcid.org/", Schema.NonEmptyString),
+                Schema.NonEmptyString,
+                {
+                  strict: true,
+                  decode: Tuple.at(1),
+                  encode: (orcidId) => Tuple.make("https://orcid.org/" as const, orcidId),
+                },
+              ),
+            ),
+          }),
+        }),
+      ),
+      Schema.Array(Schema.NonEmptyTrimmedString),
+      {
+        strict: true,
+        decode: Array.filterMap((author) => Option.fromNullable(author.author.orcid)),
+        encode: Array.map((orcidId) => ({ author: { orcid: orcidId } })),
+      },
+    ),
+  ).pipe(Schema.fromKey("authorships")),
 });
 
 const invertAbstract: (abstract: Record<string, Array.NonEmptyReadonlyArray<number>>) => string =

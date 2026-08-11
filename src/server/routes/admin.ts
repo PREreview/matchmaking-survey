@@ -91,7 +91,7 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
         });
       }
       const works = yield* openAlex.getWorks(orcidProfile.works);
-      const surveyPaperDois = yield* embeddings.getSurveyPapers(works, languages);
+      const surveyPaperDois = yield* embeddings.getSurveyPapers(works, orcidId, languages);
       const surveyPapers = yield* openAlex.getWorks(surveyPaperDois);
 
       const token = randomUUID();

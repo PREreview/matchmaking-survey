@@ -28,6 +28,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
   {
     getSurveyPapers: (
       input: Array.NonEmptyReadonlyArray<Paper>,
+      inputOrcidId: string,
       languages: Array.NonEmptyReadonlyArray<LanguageCode>,
     ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
@@ -64,13 +65,19 @@ export const embeddingsLayer = Layer.effect(
     });
 
     return {
-      getSurveyPapers: Effect.fnUntraced(function* (inputPapers, languages) {
+      getSurveyPapers: Effect.fnUntraced(function* (inputPapers, inputOrcidId, languages) {
         const result = yield* pipe(
           inputPapers,
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
           Effect.andThen(calcFloat32ArrayMean),
           Effect.andThen(
-            getRelatedDois(500, sql, languages, Array.map(inputPapers, Struct.get("doi"))),
+            getRelatedDois(
+              500,
+              sql,
+              languages,
+              inputOrcidId,
+              Array.map(inputPapers, Struct.get("doi")),
+            ),
           ),
           Effect.catchTag("UnableToQuery", ({ cause }) => new UnableToGetSurveyPapers({ cause })),
           Effect.andThen(getTopMidRandom),

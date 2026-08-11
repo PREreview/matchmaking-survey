@@ -19,7 +19,9 @@ export class UnableToQuery extends Schema.TaggedError<UnableToQuery>()("UnableTo
 
 export type Doi = string;
 
-export type Paper = { doi: Doi; title: string; abstract: string };
+export type OrcidId = string;
+
+export type Paper = { doi: Doi; title: string; abstract: string; authors: ReadonlyArray<OrcidId> };
 
 export const PgVector = Schema.transform(
   Schema.TemplateLiteralParser(
