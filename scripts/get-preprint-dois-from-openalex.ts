@@ -11,6 +11,7 @@ import {
   Chunk,
   Effect,
   flow,
+  String,
   Array,
   Layer,
   Logger,
@@ -36,18 +37,20 @@ const ListResponse = <A, I, R>(resultSchema: Schema.Schema<A, I, R>) =>
 type Doi = string;
 
 const WorkSchema = Schema.Struct({
-  doi: Schema.transform(
-    Schema.TemplateLiteralParser("https://doi.org/", Schema.NonEmptyString),
-    Schema.NonEmptyString,
-    {
-      strict: true,
-      decode: Tuple.at(1),
-      encode: (doi) => Tuple.make("https://doi.org/" as const, doi),
-    },
+  doi: Schema.NullOr(
+    Schema.transform(
+      Schema.TemplateLiteralParser("https://doi.org/", Schema.NonEmptyString),
+      Schema.NonEmptyString,
+      {
+        strict: true,
+        decode: Tuple.at(1),
+        encode: (doi) => Tuple.make("https://doi.org/" as const, doi),
+      },
+    ),
   ),
 });
 
-const DoiFromWorkSchema = Schema.transform(WorkSchema, Schema.NonEmptyString, {
+const DoiFromWorkSchema = Schema.transform(WorkSchema, Schema.NullOr(Schema.NonEmptyString), {
   strict: true,
   decode: (work) => work.doi,
   encode: (doi) => ({ doi }),
@@ -77,6 +80,7 @@ const GetWorkDois = (
         Effect.andThen((response) => [response.results, response.meta.next_cursor]),
       ),
     ),
+    Stream.filter(String.isString),
     Stream.runCollect,
     Effect.andThen(Chunk.sort(Order.string)),
   );
