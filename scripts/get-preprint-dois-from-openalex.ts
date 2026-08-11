@@ -23,6 +23,7 @@ import {
   Schema,
   Stream,
   Tuple,
+  MutableHashMap,
 } from "effect";
 import path from "path";
 
@@ -138,10 +139,25 @@ const PreprintGroups = {
   // techrxiv: ["doi_starts_with:10.36227/techrxiv.", "from_publication_date:2026-01-01"],
 } satisfies Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<string>>;
 
+const OnlyUseLatestVersions = (dois: Chunk.Chunk<Doi>): Chunk.Chunk<Doi> => {
+  const mapToVersions = Chunk.reduce(dois, MutableHashMap.empty<string, Doi>(), (map, doi) => {
+    const [, main] = doi.match(/^([\s\S]+?)([/_.]v[1-9])?$/) as [
+      string,
+      string,
+      string | undefined,
+    ];
+
+    return MutableHashMap.set(map, main, doi);
+  });
+
+  return Chunk.fromIterable(MutableHashMap.values(mapToVersions));
+};
+
 const Program = Effect.gen(function* () {
   yield* Effect.forEach(Record.toEntries(PreprintGroups), ([name, filter]) =>
     pipe(
       GetWorkDois({ filter: Array.join([...filter, "has_abstract:true", "type:preprint"], ",") }),
+      Effect.andThen(OnlyUseLatestVersions),
       Effect.andThen(DoisToFile(name)),
     ),
   );
