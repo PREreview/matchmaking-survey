@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform";
-import { Array, Config, Context, Effect, Layer, pipe } from "effect";
+import { Array, Config, Context, Effect, Layer, pipe, Struct } from "effect";
 import { UnableToGetSurveyPapers, UnableToAddPreprints, type Doi, type Paper } from "./Shared";
 import { ensureResearchAreaWorksTable, getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
 import { createMissingEmbeddings, ensurePreprintsTable, getRelatedDois } from "./Preprints";
@@ -69,7 +69,9 @@ export const embeddingsLayer = Layer.effect(
           inputPapers,
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
           Effect.andThen(calcFloat32ArrayMean),
-          Effect.andThen(getRelatedDois(500, sql, languages)),
+          Effect.andThen(
+            getRelatedDois(500, sql, languages, Array.map(inputPapers, Struct.get("doi"))),
+          ),
           Effect.catchTag("UnableToQuery", ({ cause }) => new UnableToGetSurveyPapers({ cause })),
           Effect.andThen(getTopMidRandom),
         );

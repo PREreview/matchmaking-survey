@@ -1,4 +1,4 @@
-import { Effect, pipe, Redacted, Schema } from "effect";
+import { Array, Effect, pipe, Redacted, Schema } from "effect";
 import {
   PgVector,
   UnableToAddPreprints,
@@ -54,7 +54,12 @@ export const ensurePreprintsTable = (
   `;
 
 export const getRelatedDois =
-  (limit: number, sql: SqlClient.SqlClient, languages: ReadonlyArray<LanguageCode>) =>
+  (
+    limit: number,
+    sql: SqlClient.SqlClient,
+    languages: ReadonlyArray<LanguageCode>,
+    inputDois: Array.NonEmptyReadonlyArray<Doi>,
+  ) =>
   (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToQuery> =>
     sql
       .withTransaction(
@@ -75,6 +80,7 @@ export const getRelatedDois =
       )
       .pipe(
         Effect.map((rows) => rows.map((row) => (row as unknown as { doi: string }).doi as Doi)),
+        Effect.map(Array.difference(inputDois)),
         Effect.mapError((cause) => new UnableToQuery({ cause })),
       );
 
