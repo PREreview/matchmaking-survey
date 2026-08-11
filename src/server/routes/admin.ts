@@ -107,6 +107,9 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
 
       return { batchId: batch.id, token };
     }).pipe(
+      Effect.tapError((error) =>
+        Effect.logError("Failed to create survey").pipe(Effect.annotateLogs({ error })),
+      ),
       Effect.catchTag(
         "SqlError",
         "UnableToGetProfile",
