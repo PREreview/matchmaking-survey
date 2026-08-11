@@ -142,7 +142,7 @@ const PreprintGroups = {
 
 const OnlyUseLatestVersions = (dois: Chunk.Chunk<Doi>): Chunk.Chunk<Doi> => {
   const mapToVersions = Chunk.reduce(dois, MutableHashMap.empty<string, Doi>(), (map, doi) => {
-    const [, main] = doi.match(/^([\s\S]+?)([/_.]v[1-9])?$/) as [
+    const [, main] = doi.match(/^([\s\S]+?)([/_.-]v[1-9][0-9]*)?$/) as [
       string,
       string,
       string | undefined,
