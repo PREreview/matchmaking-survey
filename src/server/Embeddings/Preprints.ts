@@ -1,5 +1,12 @@
 import { Effect, pipe, Redacted, Schema } from "effect";
-import { PgVector, UnableToAddPreprints, type Doi, type Embedding, type Paper } from "./Shared";
+import {
+  PgVector,
+  UnableToAddPreprints,
+  UnableToQuery,
+  type Doi,
+  type Embedding,
+  type Paper,
+} from "./Shared";
 import type { SqlClient, SqlError } from "@effect/sql";
 import type { HttpClient } from "@effect/platform";
 import { generateEmbeddings } from "./OpenRouter";
@@ -48,7 +55,7 @@ export const ensurePreprintsTable = (
 
 export const getRelatedDois =
   (limit: number, sql: SqlClient.SqlClient, languages: ReadonlyArray<LanguageCode>) =>
-  (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToAddPreprints> =>
+  (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToQuery> =>
     sql
       .withTransaction(
         Effect.gen(function* () {
@@ -68,7 +75,7 @@ export const getRelatedDois =
       )
       .pipe(
         Effect.map((rows) => rows.map((row) => (row as unknown as { doi: string }).doi as Doi)),
-        Effect.mapError((cause) => new UnableToAddPreprints({ cause })),
+        Effect.mapError((cause) => new UnableToQuery({ cause })),
       );
 
 export const createMissingEmbeddings =

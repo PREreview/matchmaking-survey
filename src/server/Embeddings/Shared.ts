@@ -13,6 +13,10 @@ export class UnableToDetectLanguage extends Data.TaggedError("UnableToDetectLang
   cause?: unknown;
 }> {}
 
+export class UnableToQuery extends Schema.TaggedError<UnableToQuery>()("UnableToQuery", {
+  cause: Schema.optional(Schema.Defect),
+}) {}
+
 export type Doi = string;
 
 export type Paper = { doi: Doi; title: string; abstract: string };

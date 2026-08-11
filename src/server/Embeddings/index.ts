@@ -70,10 +70,7 @@ export const embeddingsLayer = Layer.effect(
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
           Effect.andThen(calcFloat32ArrayMean),
           Effect.andThen(getRelatedDois(500, sql, languages)),
-          Effect.catchTag(
-            "UnableToAddPreprints",
-            ({ cause }) => new UnableToGetSurveyPapers({ cause }),
-          ),
+          Effect.catchTag("UnableToQuery", ({ cause }) => new UnableToGetSurveyPapers({ cause })),
           Effect.andThen(getTopMidRandom),
         );
 
