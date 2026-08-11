@@ -24,6 +24,8 @@ import {
   Stream,
   Tuple,
   MutableHashMap,
+  Config,
+  Redacted,
 } from "effect";
 import path from "path";
 
@@ -58,6 +60,7 @@ const DoiFromWorkSchema = Schema.transform(WorkSchema, Schema.NullOr(Schema.NonE
 });
 
 const GetWorkDois = (
+  apiKey: Redacted.Redacted,
   query: UrlParams.Input,
 ): Effect.Effect<
   Chunk.Chunk<Doi>,
@@ -69,13 +72,15 @@ const GetWorkDois = (
       "*",
       flow(
         (cursor) =>
-          HttpClient.get("https://api.openalex.org/works", {
+          HttpClientRequest.get("https://api.openalex.org/works", {
             urlParams: UrlParams.setAll(UrlParams.fromInput(query), {
               select: "doi",
               "per-page": 200,
               cursor,
             }),
           }),
+        HttpClientRequest.bearerToken(apiKey),
+        HttpClient.execute,
         Effect.andThen(HttpClientResponse.filterStatusOk),
         Effect.andThen(HttpClientResponse.schemaBodyJson(ListResponse(DoiFromWorkSchema))),
         Effect.scoped,
@@ -155,9 +160,13 @@ const OnlyUseLatestVersions = (dois: Chunk.Chunk<Doi>): Chunk.Chunk<Doi> => {
 };
 
 const Program = Effect.gen(function* () {
+  const apiKey = yield* Config.redacted("OPENALEX_API_KEY");
+
   yield* Effect.forEach(Record.toEntries(PreprintGroups), ([name, filter]) =>
     pipe(
-      GetWorkDois({ filter: Array.join([...filter, "has_abstract:true", "type:preprint"], ",") }),
+      GetWorkDois(apiKey, {
+        filter: Array.join([...filter, "has_abstract:true", "type:preprint"], ","),
+      }),
       Effect.andThen(OnlyUseLatestVersions),
       Effect.andThen(DoisToFile(name)),
     ),
