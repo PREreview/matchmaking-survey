@@ -98,7 +98,7 @@ const WriteToFile = (filePath: string) => (content: string) =>
   );
 
 const DoisToFile = (name: string) =>
-  flow(Chunk.join("\n"), WriteToFile(`data/preprint-dois-${name}.txt`));
+  flow(Chunk.join("\n"), String.concat("\n"), WriteToFile(`data/preprint-dois-${name}.txt`));
 
 const PreprintGroups = {
   "arxiv-computer-science": [
