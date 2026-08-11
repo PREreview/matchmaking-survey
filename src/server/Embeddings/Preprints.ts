@@ -72,7 +72,7 @@ export const getRelatedDois =
           const encoded = Schema.encodeSync(PgVector)(mean);
           return yield* sql`
             SELECT doi FROM preprints
-            WHERE ${sql.in("language", languages)}
+            WHERE ${sql.in("language", languages)} AND NOT ${sql.in("doi", inputDois)}
             ORDER BY embedding <=> ${encoded}::halfvec
             LIMIT ${limit}
           `;
@@ -80,7 +80,6 @@ export const getRelatedDois =
       )
       .pipe(
         Effect.map((rows) => rows.map((row) => (row as unknown as { doi: string }).doi as Doi)),
-        Effect.map(Array.difference(inputDois)),
         Effect.mapError((cause) => new UnableToQuery({ cause })),
       );
 
