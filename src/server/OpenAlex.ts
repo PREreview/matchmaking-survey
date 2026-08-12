@@ -16,6 +16,7 @@ import {
   Struct,
   Tuple,
   Option,
+  Equivalence,
 } from "effect";
 
 export class UnableToGetWorks extends Data.TaggedError("UnableToGetWorks")<{
@@ -91,7 +92,12 @@ const getWorks = (
           );
         }),
         { concurrency: "inherit" },
-      ).pipe(Effect.andThen(Array.flatten));
+      ).pipe(
+        Effect.andThen(Array.flatten),
+        Effect.andThen(
+          Array.dedupeWith(Equivalence.mapInput(Equivalence.string, Struct.get("doi"))),
+        ),
+      );
     },
     Effect.filterOrElse(
       (works) => Array.isNonEmptyReadonlyArray(works),
