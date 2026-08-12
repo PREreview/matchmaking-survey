@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform";
-import { Array, Config, Context, Effect, Layer, pipe, Struct } from "effect";
+import { Array, Chunk, Config, Context, Effect, Layer, pipe, Random, Struct } from "effect";
 import {
   UnableToGetSurveyPapers,
   UnableToAddPreprints,
@@ -44,25 +44,35 @@ export class Embeddings extends Context.Tag("Embeddings")<
   }
 >() {}
 
-const getTopMidRandom = (
+const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<ReadonlyArray<A>> =>
+  Random.shuffle(items).pipe(
+    Effect.map((shuffled) => Chunk.toReadonlyArray(Chunk.take(shuffled, k))),
+  );
+
+export const getTopMidRandom = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
-): ReadonlyArray<{ doi: Doi; distance: number }> => {
+) {
   const top7 = candidates.slice(0, 7);
 
-  const mid4 = candidates
-    .slice(20, 30)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 4);
+  const mid4 = yield* sample(candidates.slice(20, 30), 4);
 
   const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
-  const random4 = candidates
-    .slice(7)
-    .filter(({ doi }) => !topAndMidDois.has(doi))
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 4);
+  const random4 = yield* sample(
+    candidates.slice(7).filter(({ doi }) => !topAndMidDois.has(doi)),
+    4,
+  );
+
+  yield* Effect.logInfo("Selected survey papers").pipe(
+    Effect.annotateLogs({
+      candidates: candidates.length,
+      top: top7.length,
+      mid: mid4.length,
+      random: random4.length,
+    }),
+  );
 
   return [...top7, ...mid4, ...random4];
-};
+});
 
 export const embeddingsLayer = Layer.effect(
   Embeddings,
