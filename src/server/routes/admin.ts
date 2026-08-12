@@ -1,5 +1,5 @@
 import { parse } from "csv-parse/sync";
-import { Data, Array, Effect, Schema, flow, Struct, pipe } from "effect";
+import { Data, Array, Effect, Schema, flow, Struct, pipe, Option } from "effect";
 import { randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
@@ -92,7 +92,7 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
       }
       const works = yield* openAlex.getWorks(orcidProfile.works);
       const surveyPaperDois = yield* embeddings.getSurveyPapers(works, orcidId, languages);
-      const surveyPapers = yield* openAlex.getWorks(surveyPaperDois);
+      const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPaperDois, Struct.get("doi")));
 
       const token = randomUUID();
       const batch = yield* Db.createBatch;
@@ -101,7 +101,17 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
 
       yield* Effect.all(
         surveyPapers.map((paper, i) =>
-          Db.insertPaper(scientist.id, paper.doi, paper.title, paper.abstract, i),
+          Db.insertPaper(
+            scientist.id,
+            paper.doi,
+            paper.title,
+            paper.abstract,
+            Option.match(
+              Array.findFirst(surveyPaperDois, ({ doi }) => paper.doi === doi),
+              { onNone: () => null, onSome: Struct.get("distance") },
+            ),
+            i,
+          ),
         ),
       );
 
@@ -160,7 +170,7 @@ export const importCsv = (csvText: string) =>
       const token = randomUUID();
       const scientist = yield* Db.insertScientist(batch.id, papers[0].name, orcid, token);
       yield* Effect.all(
-        papers.map((p, i) => Db.insertPaper(scientist.id, p.doi, p.title, p.abstract, i)),
+        papers.map((p, i) => Db.insertPaper(scientist.id, p.doi, p.title, p.abstract, null, i)),
         { concurrency: 1 },
       );
       entries.push({ orcid, token, paperCount: papers.length });

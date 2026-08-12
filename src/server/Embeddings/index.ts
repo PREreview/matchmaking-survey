@@ -36,12 +36,17 @@ export class Embeddings extends Context.Tag("Embeddings")<
       input: Array.NonEmptyReadonlyArray<Paper>,
       inputOrcidId: string,
       languages: Array.NonEmptyReadonlyArray<LanguageCode>,
-    ) => Effect.Effect<Array.NonEmptyReadonlyArray<Doi>, UnableToGetSurveyPapers>;
+    ) => Effect.Effect<
+      Array.NonEmptyReadonlyArray<{ doi: Doi; distance: number }>,
+      UnableToGetSurveyPapers
+    >;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }
 >() {}
 
-const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => {
+const getTopMidRandom = (
+  candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
+): ReadonlyArray<{ doi: Doi; distance: number }> => {
   const top7 = candidates.slice(0, 7);
 
   const mid4 = candidates
@@ -49,10 +54,10 @@ const getTopMidRandom = (candidates: ReadonlyArray<Doi>): ReadonlyArray<Doi> => 
     .sort(() => Math.random() - 0.5)
     .slice(0, 4);
 
-  const topAndMidDois = new Set([...top7, ...mid4]);
+  const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
   const random4 = candidates
     .slice(7)
-    .filter((doi) => !topAndMidDois.has(doi))
+    .filter(({ doi }) => !topAndMidDois.has(doi))
     .sort(() => Math.random() - 0.5)
     .slice(0, 4);
 

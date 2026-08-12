@@ -88,10 +88,15 @@ export const migrate = Effect.gen(function* () {
       doi           TEXT    NOT NULL,
       title         TEXT    NOT NULL,
       abstract      TEXT    NOT NULL,
+      distance      REAL,
       display_order INTEGER NOT NULL DEFAULT 0,
       UNIQUE (scientist_id, doi)
     )
   `;
+  const papersColumns = yield* sql<{ name: string }>`PRAGMA table_info(papers)`;
+  if (!papersColumns.some((c) => c.name === "distance")) {
+    yield* sql`ALTER TABLE papers ADD COLUMN distance REAL`;
+  }
   yield* sql`
     CREATE TABLE IF NOT EXISTS responses (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,13 +231,14 @@ export const insertPaper = (
   doi: string,
   title: string,
   abstract: string,
+  distance: number | null,
   displayOrder: number,
 ) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql<Paper>`
-      INSERT INTO papers (scientist_id, doi, title, abstract, display_order)
-      VALUES (${scientistId}, ${doi}, ${title}, ${abstract}, ${displayOrder})
+      INSERT INTO papers (scientist_id, doi, title, abstract, distance, display_order)
+      VALUES (${scientistId}, ${doi}, ${title}, ${abstract}, ${distance}, ${displayOrder})
       RETURNING *
     `;
     return rows[0];

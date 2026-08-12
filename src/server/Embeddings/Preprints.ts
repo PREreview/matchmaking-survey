@@ -65,7 +65,7 @@ export const getRelatedDois =
     inputOrcidId: OrcidId,
     inputDois: Array.NonEmptyReadonlyArray<Doi>,
   ) =>
-  (mean: Embedding): Effect.Effect<ReadonlyArray<Doi>, UnableToQuery> =>
+  (mean: Embedding): Effect.Effect<ReadonlyArray<{ doi: Doi; distance: number }>, UnableToQuery> =>
     sql
       .withTransaction(
         Effect.gen(function* () {
@@ -76,7 +76,7 @@ export const getRelatedDois =
 
           const encoded = Schema.encodeSync(PgVector)(mean);
           return yield* sql`
-            SELECT doi FROM preprints
+            SELECT doi, embedding <=> ${encoded}::halfvec AS distance FROM preprints
             WHERE ${sql.in("language", languages)}
               AND NOT (${inputOrcidId} = ANY(authors))
               AND NOT ${sql.in("doi", inputDois)}
@@ -86,7 +86,7 @@ export const getRelatedDois =
         }),
       )
       .pipe(
-        Effect.map((rows) => rows.map((row) => (row as unknown as { doi: string }).doi as Doi)),
+        Effect.map((rows) => rows.map((row) => row as unknown as { doi: Doi; distance: number })),
         Effect.mapError((cause) => new UnableToQuery({ cause })),
       );
 

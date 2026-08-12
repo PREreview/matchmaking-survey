@@ -19,8 +19,8 @@ const seed = Db.createBatch.pipe(
   ),
   Effect.andThen((s) =>
     Effect.all([
-      Db.insertPaper(s.id, "10.1/one", "Paper One", "Abstract one.", 0),
-      Db.insertPaper(s.id, "10.1/two", "Paper Two", "Abstract two.", 1),
+      Db.insertPaper(s.id, "10.1/one", "Paper One", "Abstract one.", 0, 0),
+      Db.insertPaper(s.id, "10.1/two", "Paper Two", "Abstract two.", 0, 1),
     ]).pipe(Effect.map((papers) => ({ scientist: s, papers }))),
   ),
 );

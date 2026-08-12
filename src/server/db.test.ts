@@ -99,7 +99,7 @@ describe("papers", () => {
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-p"),
         ),
         Effect.andThen((s) =>
-          Db.insertPaper(s.id, "10.1/great", "A Great Paper", "Abstract here.", 0),
+          Db.insertPaper(s.id, "10.1/great", "A Great Paper", "Abstract here.", null, 0),
         ),
       ),
     );
@@ -116,8 +116,8 @@ describe("papers", () => {
         ),
         Effect.andThen((s) =>
           Effect.all([
-            Db.insertPaper(s.id, "10.1/b", "Paper B", "Abstract B.", 1),
-            Db.insertPaper(s.id, "10.1/a", "Paper A", "Abstract A.", 0),
+            Db.insertPaper(s.id, "10.1/b", "Paper B", "Abstract B.", null, 1),
+            Db.insertPaper(s.id, "10.1/a", "Paper A", "Abstract A.", null, 0),
           ]).pipe(Effect.andThen(() => Db.listPapersForScientist(s.id))),
         ),
       ),
@@ -133,7 +133,7 @@ describe("papers", () => {
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-nodoi"),
         ),
         Effect.andThen((s) =>
-          Db.insertPaper(s.id, "10.1/secret", "Paper", "Abstract.", 0).pipe(
+          Db.insertPaper(s.id, "10.1/secret", "Paper", "Abstract.", null, 0).pipe(
             Effect.andThen(() => Db.listPapersForScientist(s.id)),
           ),
         ),
@@ -154,8 +154,8 @@ describe("papers", () => {
         ),
         Effect.andThen(([a, b]) =>
           Effect.all([
-            Db.insertPaper(a.id, "10.1/shared", "Shared Paper", "Abstract.", 0),
-            Db.insertPaper(b.id, "10.1/shared", "Shared Paper", "Abstract.", 0),
+            Db.insertPaper(a.id, "10.1/shared", "Shared Paper", "Abstract.", null, 0),
+            Db.insertPaper(b.id, "10.1/shared", "Shared Paper", "Abstract.", null, 0),
           ]).pipe(
             Effect.andThen(() =>
               Effect.all([Db.listPapersForScientist(a.id), Db.listPapersForScientist(b.id)]),
@@ -176,9 +176,9 @@ describe("papers", () => {
             Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-dupe"),
           ),
           Effect.andThen((s) =>
-            Db.insertPaper(s.id, "10.1/dupe", "Paper", "Abstract.", 0).pipe(
+            Db.insertPaper(s.id, "10.1/dupe", "Paper", "Abstract.", null, 0).pipe(
               Effect.andThen(() =>
-                Db.insertPaper(s.id, "10.1/dupe", "Paper Again", "Abstract.", 1),
+                Db.insertPaper(s.id, "10.1/dupe", "Paper Again", "Abstract.", null, 1),
               ),
             ),
           ),
@@ -201,7 +201,14 @@ describe("migrate", () => {
           "0000-0001-2345-6789",
           "tok-migrate",
         );
-        const paperA = yield* Db.insertPaper(scientist.id, "10.1/mig-a", "Paper A", "Abstract.", 0);
+        const paperA = yield* Db.insertPaper(
+          scientist.id,
+          "10.1/mig-a",
+          "Paper A",
+          "Abstract.",
+          null,
+          0,
+        );
 
         // Simulate a database created before rating 0 ("Not sure") was supported.
         yield* sql`DROP TABLE responses`;
@@ -223,7 +230,14 @@ describe("migrate", () => {
 
         yield* Db.migrate;
 
-        const paperB = yield* Db.insertPaper(scientist.id, "10.1/mig-b", "Paper B", "Abstract.", 1);
+        const paperB = yield* Db.insertPaper(
+          scientist.id,
+          "10.1/mig-b",
+          "Paper B",
+          "Abstract.",
+          null,
+          1,
+        );
         yield* Db.upsertResponse(scientist.id, paperB.id, 0);
         return yield* Db.listResponsesForScientist(scientist.id);
       }).pipe(Effect.provide(layer)),
@@ -252,7 +266,7 @@ describe("responses", () => {
         Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-r"),
       ),
       Effect.andThen((s) =>
-        Db.insertPaper(s.id, "10.1/response-paper", "Paper", "Abstract.", 0).pipe(
+        Db.insertPaper(s.id, "10.1/response-paper", "Paper", "Abstract.", null, 0).pipe(
           Effect.andThen((p) => f({ scientistId: s.id, paperId: p.id })),
         ),
       ),
