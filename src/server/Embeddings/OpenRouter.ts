@@ -52,7 +52,24 @@ export const generateEmbeddings = (
         }));
       }),
     ).pipe(Effect.andThen(Array.flatten));
-  }).pipe(Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })));
+  }).pipe(
+    Effect.tapError(
+      Effect.fnUntraced(function* (error) {
+        yield* Effect.annotateLogsScoped({ error });
+
+        if (error._tag === "ResponseError" && error.reason === "StatusCode") {
+          yield* Effect.ignore(
+            Effect.andThen(error.response.json, (responseBody) =>
+              Effect.annotateLogsScoped({ responseBody }),
+            ),
+          );
+        }
+
+        yield* Effect.logError("Failed to generate embeddings");
+      }, Effect.scoped),
+    ),
+    Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
+  );
 
 // Conservative local token estimate (no external tokenizer):
 // Using 3 chars/token is stricter than the common ~4 chars/token rule of thumb.
