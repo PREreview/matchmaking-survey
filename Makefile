@@ -1,6 +1,14 @@
 IMAGE := match-feedback-survey
 DATA  := $(PWD)/data
 
+TOKENIZER_DIR      := src/server/Embeddings/tokenizer
+TOKENIZER_REPO     := thenlper/gte-large
+TOKENIZER_REVISION := 4bef63f39fcc5e2d6b0aae83089f307af4970164
+TOKENIZER_URL      := https://huggingface.co/$(TOKENIZER_REPO)/resolve/$(TOKENIZER_REVISION)
+
+# Excluded from oxfmt so the vendored copies stay byte-identical to the Hub's.
+TOKENIZER_UPSTREAM := '!$(TOKENIZER_DIR)/tokenizer*.json'
+
 .PHONY: dev
 dev: node_modules .env start-services
 	mkdir -p data
@@ -32,6 +40,12 @@ prod: .env
 clear:
 	rm -rf data/
 
+# Verify with `git diff --exit-code`; see $(TOKENIZER_DIR)/README.md.
+.PHONY: update-tokenizer
+update-tokenizer:
+	curl -sSLf -o $(TOKENIZER_DIR)/tokenizer.json $(TOKENIZER_URL)/tokenizer.json
+	curl -sSLf -o $(TOKENIZER_DIR)/tokenizer_config.json $(TOKENIZER_URL)/tokenizer_config.json
+
 .PHONY: check
 check: lint format typecheck test
 
@@ -41,11 +55,11 @@ lint: node_modules
 
 .PHONY: format
 format: node_modules
-	pnpm exec oxfmt --check .
+	pnpm exec oxfmt --check . $(TOKENIZER_UPSTREAM)
 
 .PHONY: fix-format
 fix-format: node_modules
-	pnpm exec oxfmt --write .
+	pnpm exec oxfmt --write . $(TOKENIZER_UPSTREAM)
 
 .PHONY: typecheck
 typecheck: node_modules
