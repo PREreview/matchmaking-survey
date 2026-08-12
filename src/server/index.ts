@@ -1,5 +1,6 @@
 import {
   FileSystem,
+  HttpClient,
   HttpMiddleware,
   HttpRouter,
   HttpServer,
@@ -23,6 +24,8 @@ import { PgClient } from "@effect/sql-pg";
 import { LoggingHttpClientLayer } from "./LoggingHttpClient.js";
 import { randomUUID } from "node:crypto";
 import { WorkflowEngine } from "@effect/workflow";
+import { Tokenizer as HuggingFaceTokenizer } from "@huggingface/tokenizers";
+import { Tokenizer } from "./Embeddings/Shared.js";
 
 function htmlResponse(html: string, status = 200) {
   return HttpServerResponse.text(html, { contentType: "text/html", status });
@@ -460,6 +463,42 @@ const dbFile = process.env.DB_FILE ?? "/data/survey.db";
 
 const ServerLive = app.pipe(HttpServer.serve(HttpMiddleware.logger), HttpServer.withLogAddress);
 
+const GetTokenizerJson = Effect.gen(function* () {
+  const fileSystem = yield* FileSystem.FileSystem;
+  const file = "data/tokenizer.json";
+
+  return yield* pipe(
+    fileSystem.readFileString(file),
+    Effect.catchTag("SystemError", () =>
+      pipe(
+        HttpClient.get("https://huggingface.co/thenlper/gte-large/resolve/main/tokenizer.json"),
+        Effect.andThen((response) => response.text),
+        Effect.tap((text) => fileSystem.writeFileString(file, text)),
+      ),
+    ),
+    Effect.andThen(Schema.decode(Schema.parseJson(Schema.Object))),
+  );
+});
+
+const GetTokenizerConfig = Effect.gen(function* () {
+  const fileSystem = yield* FileSystem.FileSystem;
+  const file = "data/tokenizer_config.json";
+
+  return yield* pipe(
+    fileSystem.readFileString(file),
+    Effect.catchTag("SystemError", () =>
+      pipe(
+        HttpClient.get(
+          "https://huggingface.co/thenlper/gte-large/resolve/main/tokenizer_config.json",
+        ),
+        Effect.andThen((response) => response.text),
+        Effect.tap((text) => fileSystem.writeFileString(file, text)),
+      ),
+    ),
+    Effect.andThen(Schema.decode(Schema.parseJson(Schema.Object))),
+  );
+});
+
 const main = Db.migrate.pipe(
   Effect.andThen(Layer.launch(ServerLive)),
   Effect.provide(
@@ -472,6 +511,28 @@ const main = Db.migrate.pipe(
           EmbeddingsClient.layer.pipe(
             Layer.provide(
               PgClient.layerConfig({ url: Config.redacted(Config.string("POSTGRES_URL")) }),
+            ),
+          ),
+          Layer.effect(
+            Tokenizer,
+            Effect.gen(function* () {
+              const [tokenizerJson, tokenizerConfig] = yield* Effect.all(
+                [GetTokenizerJson, GetTokenizerConfig],
+                { concurrency: "inherit" },
+              );
+
+              return new HuggingFaceTokenizer(tokenizerJson, tokenizerConfig);
+            }),
+          ).pipe(
+            Layer.provide(
+              Layer.effect(
+                HttpClient.HttpClient,
+                Effect.gen(function* () {
+                  const httpClient = yield* HttpClient.HttpClient;
+
+                  return HttpClient.followRedirects(httpClient, 1);
+                }),
+              ),
             ),
           ),
         ),

@@ -2,7 +2,14 @@ import { HttpClient } from "@effect/platform";
 import { SqlClient, SqlError } from "@effect/sql";
 import { Effect, Option, pipe, Redacted, Schema } from "effect";
 import { generateEmbeddings } from "./OpenRouter";
-import { PgVector, UnableToGetSurveyPapers, type Doi, type Embedding, type Paper } from "./Shared";
+import {
+  PgVector,
+  Tokenizer,
+  UnableToGetSurveyPapers,
+  type Doi,
+  type Embedding,
+  type Paper,
+} from "./Shared";
 
 const EmbeddingRow = Schema.Struct({
   doi: Schema.String,
@@ -49,7 +56,12 @@ export const ensureResearchAreaWorksTable = (
   `;
 
 export const getEmbeddingsGeneratingAsNeeded =
-  (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
+  (
+    apiKey: Redacted.Redacted,
+    httpClient: HttpClient.HttpClient,
+    sql: SqlClient.SqlClient,
+    tokenizer: typeof Tokenizer.Service,
+  ) =>
   (inputPapers: ReadonlyArray<Paper>) =>
     Effect.gen(function* () {
       const papersWithExistingEmbeddings = yield* pipe(
@@ -67,7 +79,7 @@ export const getEmbeddingsGeneratingAsNeeded =
 
       const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
         papersWithoutEmbeddings.length > 0
-          ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient)
+          ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient, tokenizer)
           : [];
 
       yield* Effect.forEach(generated, (p) => storeEmbedding(p.doi, p.embedding, sql));

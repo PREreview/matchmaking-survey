@@ -1,5 +1,6 @@
-import { Data, Schema, Tuple } from "effect";
+import { Context, Data, Schema, Tuple } from "effect";
 import { Float32ArraySchema } from "../../Float32Array";
+import { Tokenizer as HuggingFaceTokenizer } from "@huggingface/tokenizers";
 
 export class UnableToGetSurveyPapers extends Data.TaggedError("UnableToGetSurveyPapers")<{
   cause?: unknown;
@@ -22,6 +23,8 @@ export type Doi = string;
 export type OrcidId = string;
 
 export type Paper = { doi: Doi; title: string; abstract: string; authors: ReadonlyArray<OrcidId> };
+
+export class Tokenizer extends Context.Tag("Tokenizer")<Tokenizer, HuggingFaceTokenizer>() {}
 
 export const PgVector = Schema.transform(
   Schema.TemplateLiteralParser(

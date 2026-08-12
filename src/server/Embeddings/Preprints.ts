@@ -1,6 +1,7 @@
 import { Array, Effect, pipe, Redacted, Schema } from "effect";
 import {
   PgVector,
+  Tokenizer,
   UnableToAddPreprints,
   UnableToQuery,
   type Doi,
@@ -90,7 +91,12 @@ export const getRelatedDois =
       );
 
 export const createMissingEmbeddings =
-  (apiKey: Redacted.Redacted, httpClient: HttpClient.HttpClient, sql: SqlClient.SqlClient) =>
+  (
+    apiKey: Redacted.Redacted,
+    httpClient: HttpClient.HttpClient,
+    sql: SqlClient.SqlClient,
+    tokenizer: typeof Tokenizer.Service,
+  ) =>
   (inputPapers: ReadonlyArray<Paper>) =>
     Effect.gen(function* () {
       const papersWithExistingEmbeddings = yield* pipe(
@@ -108,7 +114,7 @@ export const createMissingEmbeddings =
 
       const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
         papersWithoutEmbeddings.length > 0
-          ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient).pipe(
+          ? yield* generateEmbeddings(papersWithoutEmbeddings, apiKey, httpClient, tokenizer).pipe(
               Effect.catchTag(
                 "UnableToGetSurveyPapers",
                 ({ cause }) => new UnableToAddPreprints({ cause }),

@@ -1,6 +1,12 @@
 import { HttpClient } from "@effect/platform";
 import { Array, Config, Context, Effect, Layer, pipe, Struct } from "effect";
-import { UnableToGetSurveyPapers, UnableToAddPreprints, type Doi, type Paper } from "./Shared";
+import {
+  UnableToGetSurveyPapers,
+  UnableToAddPreprints,
+  type Doi,
+  type Paper,
+  Tokenizer,
+} from "./Shared";
 import { ensureResearchAreaWorksTable, getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
 import { createMissingEmbeddings, ensurePreprintsTable, getRelatedDois } from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
@@ -59,6 +65,7 @@ export const embeddingsLayer = Layer.effect(
     const sql = yield* EmbeddingsClient;
     const httpClient = yield* HttpClient.HttpClient;
     const apiKey = yield* Config.redacted("OPENROUTER_API_KEY");
+    const tokenizer = yield* Tokenizer;
 
     yield* Effect.all([ensurePreprintsTable(sql), ensureResearchAreaWorksTable(sql)], {
       concurrency: "inherit",
@@ -68,7 +75,7 @@ export const embeddingsLayer = Layer.effect(
       getSurveyPapers: Effect.fnUntraced(function* (inputPapers, inputOrcidId, languages) {
         const result = yield* pipe(
           inputPapers,
-          getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql),
+          getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql, tokenizer),
           Effect.andThen(calcFloat32ArrayMean),
           Effect.andThen(
             getRelatedDois(
@@ -91,7 +98,7 @@ export const embeddingsLayer = Layer.effect(
 
         return result;
       }),
-      addPreprints: createMissingEmbeddings(apiKey, httpClient, sql),
+      addPreprints: createMissingEmbeddings(apiKey, httpClient, sql, tokenizer),
     };
   }),
 );
