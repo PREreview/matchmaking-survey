@@ -26,7 +26,7 @@ export const generateEmbeddings = (
   tokenizer: typeof Tokenizer.Service,
 ): Effect.Effect<ReadonlyArray<Paper & { embedding: Embedding }>, UnableToGetSurveyPapers> =>
   Effect.gen(function* () {
-    const inputGroups = pipe(papers, Array.chunksOf(50));
+    const inputGroups = pipe(papers, Array.chunksOf(200));
 
     return yield* Effect.forEach(
       inputGroups,
