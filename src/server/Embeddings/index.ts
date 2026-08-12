@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform";
-import { Array, Config, Context, Effect, Layer, pipe, Struct } from "effect";
+import { Array, Chunk, Config, Context, Effect, Layer, pipe, Random, Struct } from "effect";
 import {
   UnableToGetSurveyPapers,
   UnableToAddPreprints,
@@ -62,9 +62,14 @@ const inStratum =
   (stratum: Stratum) =>
   (candidate: RankedCandidate): SurveyCandidate => ({ ...candidate, stratum });
 
-export const getTopMidRandom = (
+const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<ReadonlyArray<A>> =>
+  Random.shuffle(items).pipe(
+    Effect.map((shuffled) => Chunk.toReadonlyArray(Chunk.take(shuffled, k))),
+  );
+
+export const getTopMidRandom = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
-): ReadonlyArray<SurveyCandidate> => {
+) {
   const ranked = candidates.map((candidate, index) => ({
     ...candidate,
     candidateRank: index + 1,
@@ -73,22 +78,28 @@ export const getTopMidRandom = (
 
   const top7 = ranked.slice(0, 7).map(inStratum("top"));
 
-  const mid4 = ranked
-    .slice(20, 30)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 4)
-    .map(inStratum("mid"));
+  const mid4 = Array.map(yield* sample(ranked.slice(20, 30), 4), inStratum("mid"));
 
   const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
-  const random4 = ranked
-    .slice(7)
-    .filter(({ doi }) => !topAndMidDois.has(doi))
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 4)
-    .map(inStratum("random"));
+  const random4 = Array.map(
+    yield* sample(
+      ranked.slice(7).filter(({ doi }) => !topAndMidDois.has(doi)),
+      4,
+    ),
+    inStratum("random"),
+  );
+
+  yield* Effect.logInfo("Selected survey papers").pipe(
+    Effect.annotateLogs({
+      candidates: candidates.length,
+      top: top7.length,
+      mid: mid4.length,
+      random: random4.length,
+    }),
+  );
 
   return [...top7, ...mid4, ...random4];
-};
+});
 
 export const embeddingsLayer = Layer.effect(
   Embeddings,
