@@ -72,15 +72,40 @@ export const generateEmbeddings = (
     Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
   );
 
-const truncateToModelLimit = (
+const specialTokensChargedByEndpoint = 2;
+
+const countTokensExcludingSpecials = (text: string, tokenizer: typeof Tokenizer.Service): number =>
+  tokenizer.encode(text, { add_special_tokens: false }).ids.length;
+
+const longestPrefixWithinBudget = (
+  text: string,
+  budget: number,
+  tokenizer: typeof Tokenizer.Service,
+): string => {
+  const fitsWithin = (length: number) =>
+    countTokensExcludingSpecials(text.slice(0, length), tokenizer) <= budget;
+
+  if (fitsWithin(text.length)) return text;
+
+  let longestMeasuredToFit = 0;
+  let shortestMeasuredNotToFit = text.length;
+
+  while (longestMeasuredToFit + 1 < shortestMeasuredNotToFit) {
+    const candidate = Math.ceil((longestMeasuredToFit + shortestMeasuredNotToFit) / 2);
+
+    if (fitsWithin(candidate)) longestMeasuredToFit = candidate;
+    else shortestMeasuredNotToFit = candidate;
+  }
+
+  return text.slice(0, longestMeasuredToFit);
+};
+
+export const truncateToModelLimit = (
   text: string,
   maxTokens: number,
   tokenizer: typeof Tokenizer.Service,
-  reservedTokens = 2,
 ): string => {
-  const tokens = tokenizer.encode(text).ids;
-  const usableTokens = Math.max(0, maxTokens - reservedTokens);
-  const truncatedTokens = Array.take(tokens, usableTokens);
+  const budget = maxTokens - specialTokensChargedByEndpoint;
 
-  return tokenizer.decode(truncatedTokens);
+  return budget > 0 ? longestPrefixWithinBudget(text, budget, tokenizer) : "";
 };
