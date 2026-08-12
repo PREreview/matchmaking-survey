@@ -15,24 +15,35 @@ const run = <A>(effect: Effect.Effect<A, unknown, Db.DbClient>) =>
 
 describe("batches", () => {
   it("creates a batch and returns it with an id and timestamp", async () => {
-    const batch = await run(Db.createBatch);
+    const batch = await run(Db.createBatch("csv"));
     expect(batch.id).toBe(1);
     expect(typeof batch.uploaded_at).toBe("string");
   });
 
   it("lists all batches newest first", async () => {
     const batches = await run(
-      Db.createBatch.pipe(Effect.andThen(Db.createBatch), Effect.andThen(Db.listBatches)),
+      Db.createBatch("csv").pipe(
+        Effect.andThen(() => Db.createBatch("csv")),
+        Effect.andThen(Db.listBatches),
+      ),
     );
     expect(batches).toHaveLength(2);
     expect(batches[0].id).toBeGreaterThan(batches[1].id);
+  });
+
+  it("records which entry point created a batch", async () => {
+    const [csvBatch, orcidBatch] = await run(
+      Effect.all([Db.createBatch("csv"), Db.createBatch("orcid")], { concurrency: 1 }),
+    );
+    expect(csvBatch.source).toBe("csv");
+    expect(orcidBatch.source).toBe("orcid");
   });
 });
 
 describe("scientists", () => {
   it("inserts a scientist linked to a batch", async () => {
     const scientist = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-abc"),
         ),
@@ -46,7 +57,7 @@ describe("scientists", () => {
 
   it("looks up a scientist by token", async () => {
     const found = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-xyz"),
         ),
@@ -64,7 +75,7 @@ describe("scientists", () => {
 
   it("marks a scientist as submitted", async () => {
     const found = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-s"),
         ),
@@ -78,7 +89,7 @@ describe("scientists", () => {
 
   it("lists scientists for a batch", async () => {
     const scientists = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Effect.all([
             Db.insertScientist(b.id, "Test Scientist", "0000-0001-0000-0001", "tok-1"),
@@ -94,7 +105,7 @@ describe("scientists", () => {
 describe("papers", () => {
   it("inserts a paper linked to a scientist", async () => {
     const paper = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-p"),
         ),
@@ -110,7 +121,7 @@ describe("papers", () => {
 
   it("lists papers for a scientist in display_order", async () => {
     const papers = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-pp"),
         ),
@@ -128,7 +139,7 @@ describe("papers", () => {
 
   it("does not include doi in the survey-facing paper shape", async () => {
     const papers = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-nodoi"),
         ),
@@ -145,7 +156,7 @@ describe("papers", () => {
 
   it("allows the same doi to be shown to two different scientists", async () => {
     const [papersA, papersB] = await run(
-      Db.createBatch.pipe(
+      Db.createBatch("csv").pipe(
         Effect.andThen((b) =>
           Effect.all([
             Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-share-a"),
@@ -168,10 +179,46 @@ describe("papers", () => {
     expect(papersB).toHaveLength(1);
   });
 
+  it("records the stratum, rank and candidate count a paper was chosen by", async () => {
+    const paper = await run(
+      Db.createBatch("orcid").pipe(
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-prov"),
+        ),
+        Effect.andThen((s) =>
+          Db.insertPaper(s.id, "10.1/prov", "Paper", "Abstract.", 0.1234, 0, {
+            stratum: "top",
+            candidateRank: 3,
+            candidatesReturned: 500,
+          }),
+        ),
+      ),
+    );
+    expect(paper.distance).toBeCloseTo(0.1234);
+    expect(paper.stratum).toBe("top");
+    expect(paper.candidate_rank).toBe(3);
+    expect(paper.candidates_returned).toBe(500);
+  });
+
+  it("leaves provenance null for a paper inserted without it", async () => {
+    const paper = await run(
+      Db.createBatch("csv").pipe(
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-noprov"),
+        ),
+        Effect.andThen((s) => Db.insertPaper(s.id, "10.1/noprov", "Paper", "Abstract.", null, 0)),
+      ),
+    );
+    expect(paper.distance).toBeNull();
+    expect(paper.stratum).toBeNull();
+    expect(paper.candidate_rank).toBeNull();
+    expect(paper.candidates_returned).toBeNull();
+  });
+
   it("rejects inserting the same doi twice for the same scientist", async () => {
     await expect(
       run(
-        Db.createBatch.pipe(
+        Db.createBatch("csv").pipe(
           Effect.andThen((b) =>
             Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-dupe"),
           ),
@@ -189,12 +236,66 @@ describe("papers", () => {
 });
 
 describe("migrate", () => {
+  it("adds the provenance columns to tables created before them", async () => {
+    const { batch, paper } = await Effect.runPromise(
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        yield* Db.migrate;
+
+        // Simulate a database created before any provenance was recorded.
+        yield* sql`DROP TABLE responses`;
+        yield* sql`DROP TABLE papers`;
+        yield* sql`DROP TABLE batches`;
+        yield* sql`
+          CREATE TABLE batches (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            uploaded_at TEXT    NOT NULL DEFAULT (datetime('now'))
+          )
+        `;
+        yield* sql`
+          CREATE TABLE papers (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            scientist_id  INTEGER NOT NULL REFERENCES scientists(id),
+            doi           TEXT    NOT NULL,
+            title         TEXT    NOT NULL,
+            abstract      TEXT    NOT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            UNIQUE (scientist_id, doi)
+          )
+        `;
+        yield* sql`INSERT INTO batches (uploaded_at) VALUES (datetime('now'))`;
+        const scientist = yield* Db.insertScientist(
+          1,
+          "Test Scientist",
+          "0000-0001-2345-6789",
+          "tok-legacy",
+        );
+        yield* sql`
+          INSERT INTO papers (scientist_id, doi, title, abstract, display_order)
+          VALUES (${scientist.id}, '10.1/legacy', 'Paper', 'Abstract.', 0)
+        `;
+
+        yield* Db.migrate;
+
+        const batches = yield* sql<Db.Batch>`SELECT * FROM batches`;
+        const papers = yield* sql<Db.Paper>`SELECT * FROM papers`;
+        return { batch: batches[0], paper: papers[0] };
+      }).pipe(Effect.provide(layer)),
+    );
+    // Nobody wrote this down at the time, so null is the honest record.
+    expect(batch.source).toBeNull();
+    expect(paper.distance).toBeNull();
+    expect(paper.stratum).toBeNull();
+    expect(paper.candidate_rank).toBeNull();
+    expect(paper.candidates_returned).toBeNull();
+  });
+
   it("rebuilds a responses table created under the old 1-5 CHECK constraint", async () => {
     const responses = await Effect.runPromise(
       Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient;
         yield* Db.migrate;
-        const batch = yield* Db.createBatch;
+        const batch = yield* Db.createBatch("csv");
         const scientist = yield* Db.insertScientist(
           batch.id,
           "Test Scientist",
@@ -261,7 +362,7 @@ describe("responses", () => {
   const withScientistAndPaper = <A>(
     f: (ids: { scientistId: number; paperId: number }) => Effect.Effect<A, unknown, Db.DbClient>,
   ) =>
-    Db.createBatch.pipe(
+    Db.createBatch("csv").pipe(
       Effect.andThen((b) =>
         Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-r"),
       ),
@@ -347,6 +448,32 @@ describe("responses", () => {
     expect(responses).toHaveLength(1);
     expect(responses[0].rating).toBe(5);
     expect(responses[0].comment).toBe("Updated comment");
+  });
+
+  it("exports the provenance of every shown item", async () => {
+    const rows = await run(
+      Db.createBatch("orcid").pipe(
+        Effect.andThen((b) =>
+          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-exp"),
+        ),
+        Effect.andThen((s) =>
+          Db.insertPaper(s.id, "10.1/exp", "Paper", "Abstract.", 0.42, 7, {
+            stratum: "mid",
+            candidateRank: 24,
+            candidatesReturned: 500,
+          }).pipe(
+            Effect.andThen((p) => Db.upsertResponse(s.id, p.id, 3)),
+            Effect.andThen(() => Db.exportResponses),
+          ),
+        ),
+      ),
+    );
+    expect(rows[0].source).toBe("orcid");
+    expect(rows[0].distance).toBeCloseTo(0.42);
+    expect(rows[0].stratum).toBe("mid");
+    expect(rows[0].candidate_rank).toBe(24);
+    expect(rows[0].candidates_returned).toBe(500);
+    expect(rows[0].display_order).toBe(7);
   });
 
   it("exports all responses joined with batch/scientist/paper data", async () => {

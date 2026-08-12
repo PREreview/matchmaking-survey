@@ -13,7 +13,7 @@ beforeEach(() => {
 const run = <A>(effect: Effect.Effect<A, unknown, Db.DbClient>) =>
   Effect.runPromise(Db.migrate.pipe(Effect.andThen(effect), Effect.provide(layer)));
 
-const seed = Db.createBatch.pipe(
+const seed = Db.createBatch("csv").pipe(
   Effect.andThen((b) =>
     Db.insertScientist(b.id, "Test Scientist", "0000-0002-1234-5678", "test-token"),
   ),

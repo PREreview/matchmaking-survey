@@ -5,7 +5,8 @@ import { ratingLabelFor } from "./ratingLabels.js";
 
 export type DbClient = SqlClient.SqlClient;
 
-export type Batch = { id: number; uploaded_at: string };
+export type BatchSource = "csv" | "orcid";
+export type Batch = { id: number; uploaded_at: string; source: BatchSource | null };
 export type Scientist = {
   id: number;
   batch_id: number;
@@ -14,6 +15,17 @@ export type Scientist = {
   token: string;
   submitted_at: string | null;
 };
+export type PaperProvenance = {
+  stratum: string;
+  candidateRank: number;
+  candidatesReturned: number;
+};
+export type ProvenanceColumns = {
+  distance: number | null;
+  stratum: string | null;
+  candidate_rank: number | null;
+  candidates_returned: number | null;
+};
 export type Paper = {
   id: number;
   scientist_id: number;
@@ -21,7 +33,7 @@ export type Paper = {
   title: string;
   abstract: string;
   display_order: number;
-};
+} & ProvenanceColumns;
 export type SurveyPaper = {
   id: number;
   title: string;
@@ -46,16 +58,19 @@ export type Response = {
 } & RatingLabelColumns;
 export type ExportRow = {
   batch_uploaded_at: string;
+  source: BatchSource | null;
   name: string;
   orcid: string;
   token: string;
   doi: string;
   title: string;
   abstract: string;
+  display_order: number;
   rating: number;
   comment: string | null;
   answered_at: string;
-} & RatingLabelColumns;
+} & ProvenanceColumns &
+  RatingLabelColumns;
 
 export const migrate = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -64,9 +79,14 @@ export const migrate = Effect.gen(function* () {
   yield* sql`
     CREATE TABLE IF NOT EXISTS batches (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      uploaded_at TEXT    NOT NULL DEFAULT (datetime('now'))
+      uploaded_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      source      TEXT
     )
   `;
+  const batchColumns = yield* sql<{ name: string }>`PRAGMA table_info(batches)`;
+  if (!batchColumns.some((c) => c.name === "source")) {
+    yield* sql`ALTER TABLE batches ADD COLUMN source TEXT`;
+  }
   yield* sql`
     CREATE TABLE IF NOT EXISTS scientists (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +109,9 @@ export const migrate = Effect.gen(function* () {
       title         TEXT    NOT NULL,
       abstract      TEXT    NOT NULL,
       distance      REAL,
+      stratum       TEXT,
+      candidate_rank      INTEGER,
+      candidates_returned INTEGER,
       display_order INTEGER NOT NULL DEFAULT 0,
       UNIQUE (scientist_id, doi)
     )
@@ -96,6 +119,11 @@ export const migrate = Effect.gen(function* () {
   const papersColumns = yield* sql<{ name: string }>`PRAGMA table_info(papers)`;
   if (!papersColumns.some((c) => c.name === "distance")) {
     yield* sql`ALTER TABLE papers ADD COLUMN distance REAL`;
+  }
+  if (!papersColumns.some((c) => c.name === "stratum")) {
+    yield* sql`ALTER TABLE papers ADD COLUMN stratum TEXT`;
+    yield* sql`ALTER TABLE papers ADD COLUMN candidate_rank INTEGER`;
+    yield* sql`ALTER TABLE papers ADD COLUMN candidates_returned INTEGER`;
   }
   yield* sql`
     CREATE TABLE IF NOT EXISTS responses (
@@ -177,13 +205,16 @@ export const migrate = Effect.gen(function* () {
   }
 });
 
-export const createBatch = Effect.gen(function* () {
-  const sql = yield* SqlClient.SqlClient;
-  const rows = yield* sql<Batch>`
-    INSERT INTO batches (uploaded_at) VALUES (datetime('now')) RETURNING *
-  `;
-  return rows[0];
-});
+export const createBatch = (source: BatchSource) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const rows = yield* sql<Batch>`
+      INSERT INTO batches (uploaded_at, source)
+      VALUES (datetime('now'), ${source})
+      RETURNING *
+    `;
+    return rows[0];
+  });
 
 export const listBatches = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -233,12 +264,20 @@ export const insertPaper = (
   abstract: string,
   distance: number | null,
   displayOrder: number,
+  provenance: PaperProvenance | null = null,
 ) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql<Paper>`
-      INSERT INTO papers (scientist_id, doi, title, abstract, distance, display_order)
-      VALUES (${scientistId}, ${doi}, ${title}, ${abstract}, ${distance}, ${displayOrder})
+      INSERT INTO papers (
+        scientist_id, doi, title, abstract,
+        distance, stratum, candidate_rank, candidates_returned, display_order
+      )
+      VALUES (
+        ${scientistId}, ${doi}, ${title}, ${abstract},
+        ${distance}, ${provenance?.stratum ?? null}, ${provenance?.candidateRank ?? null},
+        ${provenance?.candidatesReturned ?? null}, ${displayOrder}
+      )
       RETURNING *
     `;
     return rows[0];
@@ -298,12 +337,18 @@ export const exportResponses = Effect.gen(function* () {
   return yield* sql<ExportRow>`
     SELECT
       b.uploaded_at AS batch_uploaded_at,
+      b.source,
       s.name,
       s.orcid,
       s.token,
       p.doi,
       p.title,
       p.abstract,
+      p.distance,
+      p.stratum,
+      p.candidate_rank,
+      p.candidates_returned,
+      p.display_order,
       r.rating,
       r.comment,
       r.answered_at,

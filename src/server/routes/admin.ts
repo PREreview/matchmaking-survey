@@ -95,7 +95,7 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
       const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPaperDois, Struct.get("doi")));
 
       const token = randomUUID();
-      const batch = yield* Db.createBatch;
+      const batch = yield* Db.createBatch("orcid");
 
       const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
 
@@ -150,7 +150,7 @@ export const importCsv = (csvText: string) =>
       return yield* Effect.fail(new DuplicateCsvRowsError({ duplicates }));
     }
 
-    const batch = yield* Db.createBatch;
+    const batch = yield* Db.createBatch("csv");
 
     // Group papers by ORCID preserving row order
     const byOrcid = new Map<string, CsvRow[]>();
