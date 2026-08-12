@@ -31,6 +31,17 @@ describe("getSurveyState", () => {
     expect(result).toBeNull();
   });
 
+  it("shows a returning reviewer the order they left", async () => {
+    const [first, second] = await run(
+      seed.pipe(
+        Effect.andThen(() =>
+          Effect.all([Survey.getSurveyState("test-token"), Survey.getSurveyState("test-token")]),
+        ),
+      ),
+    );
+    expect(first!.papers.map((p) => p.id)).toEqual(second!.papers.map((p) => p.id));
+  });
+
   it("returns scientist, papers, and empty responses for a fresh token", async () => {
     const result = await run(seed.pipe(Effect.andThen(() => Survey.getSurveyState("test-token"))));
     expect(result).not.toBeNull();

@@ -67,7 +67,10 @@ const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<ReadonlyAr
     Effect.map((shuffled) => Chunk.toReadonlyArray(Chunk.take(shuffled, k))),
   );
 
-export const getTopMidRandom = Effect.fnUntraced(function* (
+const shuffle = <A>(items: ReadonlyArray<A>): Effect.Effect<ReadonlyArray<A>> =>
+  sample(items, items.length);
+
+export const getSurveyCandidates = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
 ) {
   const ranked = candidates.map((candidate, index) => ({
@@ -98,7 +101,7 @@ export const getTopMidRandom = Effect.fnUntraced(function* (
     }),
   );
 
-  return [...top7, ...mid4, ...random4];
+  return yield* shuffle([...top7, ...mid4, ...random4]);
 });
 
 export const embeddingsLayer = Layer.effect(
@@ -129,7 +132,7 @@ export const embeddingsLayer = Layer.effect(
             ),
           ),
           Effect.catchTag("UnableToQuery", ({ cause }) => new UnableToGetSurveyPapers({ cause })),
-          Effect.andThen(getTopMidRandom),
+          Effect.andThen(getSurveyCandidates),
         );
 
         if (!Array.isNonEmptyReadonlyArray(result)) {

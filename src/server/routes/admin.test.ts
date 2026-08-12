@@ -60,6 +60,18 @@ describe("importCsv", () => {
     expect(papers[0].title).toBe("Paper Alpha");
   });
 
+  it("keeps an imported survey in csv row order", async () => {
+    const papers = await run(
+      Admin.importCsv(csvText).pipe(
+        Effect.andThen(({ entries }) =>
+          Db.getScientistByToken(entries.find((e) => e.orcid === "0000-0001-1111-1111")!.token),
+        ),
+        Effect.andThen((s) => Db.listPapersForScientist(s!.id)),
+      ),
+    );
+    expect(papers.map((p) => p.title)).toEqual(["Paper Alpha", "Paper Beta"]);
+  });
+
   it("second import creates a new batch with new tokens", async () => {
     const { first, second } = await run(
       Admin.importCsv(csvText).pipe(
