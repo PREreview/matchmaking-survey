@@ -29,6 +29,16 @@ export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
   );
 }
 
+export type Stratum = "top" | "mid" | "random";
+
+export type SurveyCandidate = {
+  doi: Doi;
+  distance: number;
+  stratum: Stratum;
+  candidateRank: number;
+  candidatesReturned: number;
+};
+
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
   {
@@ -36,30 +46,46 @@ export class Embeddings extends Context.Tag("Embeddings")<
       input: Array.NonEmptyReadonlyArray<Paper>,
       inputOrcidId: string,
       languages: Array.NonEmptyReadonlyArray<LanguageCode>,
-    ) => Effect.Effect<
-      Array.NonEmptyReadonlyArray<{ doi: Doi; distance: number }>,
-      UnableToGetSurveyPapers
-    >;
+    ) => Effect.Effect<Array.NonEmptyReadonlyArray<SurveyCandidate>, UnableToGetSurveyPapers>;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }
 >() {}
 
-const getTopMidRandom = (
-  candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
-): ReadonlyArray<{ doi: Doi; distance: number }> => {
-  const top7 = candidates.slice(0, 7);
+type RankedCandidate = {
+  doi: Doi;
+  distance: number;
+  candidateRank: number;
+  candidatesReturned: number;
+};
 
-  const mid4 = candidates
+const inStratum =
+  (stratum: Stratum) =>
+  (candidate: RankedCandidate): SurveyCandidate => ({ ...candidate, stratum });
+
+export const getTopMidRandom = (
+  candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
+): ReadonlyArray<SurveyCandidate> => {
+  const ranked = candidates.map((candidate, index) => ({
+    ...candidate,
+    candidateRank: index + 1,
+    candidatesReturned: candidates.length,
+  }));
+
+  const top7 = ranked.slice(0, 7).map(inStratum("top"));
+
+  const mid4 = ranked
     .slice(20, 30)
     .sort(() => Math.random() - 0.5)
-    .slice(0, 4);
+    .slice(0, 4)
+    .map(inStratum("mid"));
 
   const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
-  const random4 = candidates
+  const random4 = ranked
     .slice(7)
     .filter(({ doi }) => !topAndMidDois.has(doi))
     .sort(() => Math.random() - 0.5)
-    .slice(0, 4);
+    .slice(0, 4)
+    .map(inStratum("random"));
 
   return [...top7, ...mid4, ...random4];
 };

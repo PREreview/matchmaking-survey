@@ -59,6 +59,22 @@ export const addPreprints = (dois: Array.NonEmptyReadonlyArray<string>) =>
     yield* embeddings.addPreprints(works);
   });
 
+export const pairWorksWithProvenance = <
+  Provenance extends { doi: string },
+  Work extends { doi: string },
+>(
+  provenance: ReadonlyArray<Provenance>,
+  works: ReadonlyArray<Work>,
+): ReadonlyArray<{ work: Work; provenance: Provenance }> => {
+  const worksByDoi = new Map(works.map((work) => [work.doi.toLowerCase(), work]));
+  return Array.filterMap(provenance, (candidate) =>
+    Option.map(Option.fromNullable(worksByDoi.get(candidate.doi.toLowerCase())), (work) => ({
+      work,
+      provenance: candidate,
+    })),
+  );
+};
+
 export const createSurvey = Workflow.make({
   name: "CreateSurvey",
   payload: {
@@ -91,8 +107,9 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
         });
       }
       const works = yield* openAlex.getWorks(orcidProfile.works);
-      const surveyPaperDois = yield* embeddings.getSurveyPapers(works, orcidId, languages);
-      const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPaperDois, Struct.get("doi")));
+      const surveyCandidates = yield* embeddings.getSurveyPapers(works, orcidId, languages);
+      const surveyWorks = yield* openAlex.getWorks(Array.map(surveyCandidates, Struct.get("doi")));
+      const shownItems = pairWorksWithProvenance(surveyCandidates, surveyWorks);
 
       const token = randomUUID();
       const batch = yield* Db.createBatch("orcid");
@@ -100,17 +117,19 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
       const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
 
       yield* Effect.all(
-        surveyPapers.map((paper, i) =>
+        shownItems.map(({ work, provenance }, i) =>
           Db.insertPaper(
             scientist.id,
-            paper.doi,
-            paper.title,
-            paper.abstract,
-            Option.match(
-              Array.findFirst(surveyPaperDois, ({ doi }) => paper.doi === doi),
-              { onNone: () => null, onSome: Struct.get("distance") },
-            ),
+            work.doi,
+            work.title,
+            work.abstract,
+            provenance.distance,
             i,
+            {
+              stratum: provenance.stratum,
+              candidateRank: provenance.candidateRank,
+              candidatesReturned: provenance.candidatesReturned,
+            },
           ),
         ),
       );
