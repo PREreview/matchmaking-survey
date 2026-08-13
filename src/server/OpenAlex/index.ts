@@ -30,7 +30,7 @@ export class OpenAlex extends Context.Tag("OpenAlex")<
   {
     getWorks: (
       input: Array.NonEmptyReadonlyArray<Doi>,
-    ) => Effect.Effect<Array.NonEmptyReadonlyArray<Work>, UnableToGetWorks>;
+    ) => Effect.Effect<ReadonlyArray<Work>, UnableToGetWorks>;
   }
 >() {}
 
@@ -57,7 +57,7 @@ const getWorks = (
   httpClient: HttpClient.HttpClient,
 ): ((
   input: Array.NonEmptyReadonlyArray<Doi>,
-) => Effect.Effect<Array.NonEmptyReadonlyArray<Work>, UnableToGetWorks>) =>
+) => Effect.Effect<ReadonlyArray<Work>, UnableToGetWorks>) =>
   Effect.fnUntraced(
     function* (dois) {
       const doiGroups = Array.chunksOf(dois, 100);
@@ -88,7 +88,7 @@ const getWorks = (
             Array.map(sanitiseTitleAndAbstract),
           );
         }),
-        { concurrency: "inherit" },
+        { concurrency: 5 },
       ).pipe(
         Effect.andThen(Array.flatten),
         Effect.andThen(
@@ -96,10 +96,6 @@ const getWorks = (
         ),
       );
     },
-    Effect.filterOrElse(
-      (works) => Array.isNonEmptyReadonlyArray(works),
-      () => new UnableToGetWorks({ cause: "no works found" }),
-    ),
     Effect.mapError((cause) => new UnableToGetWorks({ cause })),
   );
 

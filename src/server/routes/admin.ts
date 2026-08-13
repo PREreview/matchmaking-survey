@@ -91,6 +91,11 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
         });
       }
       const works = yield* openAlex.getWorks(orcidProfile.works);
+      if (!Array.isNonEmptyReadonlyArray(works)) {
+        return yield* new UnableToCreateSurvey({
+          cause: "no works with a title and abstract on ORCID profile",
+        });
+      }
       const surveyPaperDois = yield* embeddings.getSurveyPapers(works, orcidId, languages);
       const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPaperDois, Struct.get("doi")));
 
