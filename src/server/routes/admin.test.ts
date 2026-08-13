@@ -232,7 +232,7 @@ describe("addPreprints", () => {
     expect(calls.addPreprints).toEqual([]);
   });
 
-  it("chunks a large list into batches of 500", async () => {
+  it("chunks a large list into batches of 200", async () => {
     const { run, calls } = runAddPreprints({});
     const dois = Array.makeBy(1001, (i) => `10.1/x${i}`);
 
@@ -241,8 +241,8 @@ describe("addPreprints", () => {
     expect(result.submitted).toBe(1001);
     expect(result.ingested).toBe(1001);
     expect(result.chunksWithFailures).toBe(0);
-    expect(calls.getWorks.map((c) => c.length)).toEqual([500, 500, 1]);
-    expect(calls.addPreprints.map((w) => w.length)).toEqual([500, 500, 1]);
+    expect(calls.getWorks.map((c) => c.length)).toEqual([200, 200, 200, 200, 200, 1]);
+    expect(calls.addPreprints.map((w) => w.length)).toEqual([200, 200, 200, 200, 200, 1]);
   });
 
   it("counts ingested as works returned rather than submitted DOIs", async () => {
@@ -283,11 +283,11 @@ describe("addPreprints", () => {
     expect(result).toEqual({
       submitted: 501,
       alreadyStored: 0,
-      ingested: 1,
+      ingested: 301,
       chunksWithFailures: 1,
     });
-    expect(calls.getWorks).toHaveLength(2);
-    expect(calls.addPreprints).toHaveLength(1);
+    expect(calls.getWorks).toHaveLength(3);
+    expect(calls.addPreprints).toHaveLength(2);
   });
 
   it("continues with the next chunk when one chunk fails to be stored", async () => {
@@ -307,11 +307,11 @@ describe("addPreprints", () => {
     expect(result).toEqual({
       submitted: 501,
       alreadyStored: 0,
-      ingested: 1,
+      ingested: 301,
       chunksWithFailures: 1,
     });
-    expect(calls.getWorks).toHaveLength(2);
-    expect(calls.addPreprints).toHaveLength(2);
+    expect(calls.getWorks).toHaveLength(3);
+    expect(calls.addPreprints).toHaveLength(3);
   });
 });
 

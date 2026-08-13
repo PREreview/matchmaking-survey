@@ -4,11 +4,10 @@ import { createHash, randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
 import { UnableToAddPreprints } from "../Embeddings/Shared.js";
-import { OpenAlex, UnableToGetWorks } from "../OpenAlex/index.js";
+import { OpenAlex } from "../OpenAlex/index.js";
 import { Orcid } from "../Orcid.js";
 import { Activity, Workflow } from "@effect/workflow";
 import iso6391 from "iso-639-1";
-import { catchAll } from "effect/Effect";
 
 const Iso6391Schema = pipe(Schema.String, Schema.filter(iso6391.validate));
 
@@ -51,7 +50,7 @@ const findDuplicateOrcidDoiRows = (rows: CsvRow[]) => {
   return duplicates;
 };
 
-const ADD_PREPRINTS_CHUNK_SIZE = 500;
+const ADD_PREPRINTS_CHUNK_SIZE = 200;
 
 export const addPreprints = (
   dois: Array.NonEmptyReadonlyArray<string>,
