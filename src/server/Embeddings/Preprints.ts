@@ -15,32 +15,42 @@ import { generateEmbeddings } from "./OpenRouter";
 import type { LanguageCode } from "iso-639-1";
 import { detectLanguage } from "./Cld";
 
-const hasStoredEmbedding = (
-  doi: Doi,
+export const findExistingDois = (
+  dois: ReadonlyArray<Doi>,
   sql: SqlClient.SqlClient,
-): Effect.Effect<boolean, UnableToAddPreprints> =>
+): Effect.Effect<Set<Doi>, UnableToAddPreprints> =>
   Effect.gen(function* () {
-    const rows = yield* sql`SELECT embedding FROM preprints WHERE doi = ${doi}`.pipe(
-      Effect.mapError((cause) => new UnableToAddPreprints({ cause })),
-    );
+    if (dois.length === 0) return new Set<Doi>();
 
-    if (rows.length === 0) return false;
+    const normalized = dois.map((doi) => doi.toLowerCase());
+    const rows = yield* sql<{ doi: string }>`
+      SELECT doi FROM preprints WHERE ${sql.in("doi", normalized)}
+    `.pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
-    return true;
-  }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
+    return new Set(rows.map((row) => row.doi.toLowerCase()));
+  });
 
-const storeEmbedding = (
-  doi: Doi,
-  language: LanguageCode,
-  authors: ReadonlyArray<OrcidId>,
-  embedding: Embedding,
+export const storeEmbeddings = (
+  rows: ReadonlyArray<{
+    doi: Doi;
+    language: LanguageCode;
+    authors: ReadonlyArray<OrcidId>;
+    embedding: Embedding;
+  }>,
   sql: SqlClient.SqlClient,
 ): Effect.Effect<void, UnableToAddPreprints> =>
   Effect.gen(function* () {
-    const encoded = Schema.encodeSync(PgVector)(embedding);
+    if (rows.length === 0) return;
+
+    const values = rows.map((row) => {
+      const encoded = Schema.encodeSync(PgVector)(row.embedding);
+      return sql`(${row.doi.toLowerCase()}, ${row.language}, ${row.authors}, ${encoded}::halfvec)`;
+    });
+
     yield* sql`
       INSERT INTO preprints (doi, language, authors, embedding)
-      VALUES (${doi}, ${language}, ${authors}, ${encoded}::halfvec)
+      VALUES ${sql.join(",", false)(values)}
+      ON CONFLICT (doi) DO NOTHING
     `;
   }).pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
 
@@ -99,17 +109,13 @@ export const createMissingEmbeddings =
   ) =>
   (inputPapers: ReadonlyArray<Paper>) =>
     Effect.gen(function* () {
-      const papersWithExistingEmbeddings = yield* pipe(
-        inputPapers,
-        Effect.forEach((paper) =>
-          hasStoredEmbedding(paper.doi, sql).pipe(
-            Effect.map((hasEmbedding) => ({ paper, hasEmbedding })),
-          ),
-        ),
+      const existing = yield* findExistingDois(
+        inputPapers.map((paper) => paper.doi),
+        sql,
       );
 
-      const papersWithoutEmbeddings = papersWithExistingEmbeddings.flatMap(
-        ({ paper, hasEmbedding }) => (!hasEmbedding ? [paper] : []),
+      const papersWithoutEmbeddings = inputPapers.filter(
+        (paper) => !existing.has(paper.doi.toLowerCase()),
       );
 
       const generated: ReadonlyArray<Paper & { embedding: Embedding }> =
@@ -134,7 +140,5 @@ export const createMissingEmbeddings =
         ),
       );
 
-      yield* Effect.forEach(generatedWithLanguage, (p) =>
-        storeEmbedding(p.doi, p.language, p.authors, p.embedding, sql),
-      );
+      yield* storeEmbeddings(generatedWithLanguage, sql);
     });
