@@ -124,8 +124,9 @@ export const createMissingEmbeddings =
 
       const generatedWithLanguage = yield* pipe(
         generated,
-        Effect.forEach((w) =>
-          detectLanguage(w.title).pipe(Effect.map((language) => ({ ...w, language }))),
+        Effect.forEach(
+          (w) => detectLanguage(w.title).pipe(Effect.map((language) => ({ ...w, language }))),
+          { concurrency: 4 },
         ),
         Effect.catchTag(
           "UnableToDetectLanguage",
