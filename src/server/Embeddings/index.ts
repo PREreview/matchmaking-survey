@@ -29,6 +29,16 @@ export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
   );
 }
 
+export type Stratum = "top" | "mid" | "random";
+
+export type SurveyCandidate = {
+  doi: Doi;
+  distance: number;
+  stratum: Stratum;
+  candidateRank: number;
+  candidatesReturned: number;
+};
+
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
   {
@@ -36,28 +46,48 @@ export class Embeddings extends Context.Tag("Embeddings")<
       input: Array.NonEmptyReadonlyArray<Paper>,
       inputOrcidId: string,
       languages: Array.NonEmptyReadonlyArray<LanguageCode>,
-    ) => Effect.Effect<
-      Array.NonEmptyReadonlyArray<{ doi: Doi; distance: number }>,
-      UnableToGetSurveyPapers
-    >;
+    ) => Effect.Effect<Array.NonEmptyReadonlyArray<SurveyCandidate>, UnableToGetSurveyPapers>;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }
 >() {}
 
+type RankedCandidate = {
+  doi: Doi;
+  distance: number;
+  candidateRank: number;
+  candidatesReturned: number;
+};
+
+const inStratum =
+  (stratum: Stratum) =>
+  (candidate: RankedCandidate): SurveyCandidate => ({ ...candidate, stratum });
+
 const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<Chunk.Chunk<A>> =>
   pipe(Random.shuffle(items), Effect.andThen(Chunk.take(k)));
 
-export const getTopMidRandom = Effect.fnUntraced(function* (
+const shuffleAll = <A>(items: ReadonlyArray<A>): Effect.Effect<ReadonlyArray<A>> =>
+  pipe(sample(items, items.length), Effect.andThen(Chunk.toReadonlyArray));
+
+export const getSurveyCandidates = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
 ) {
-  const top7 = candidates.slice(0, 7);
+  const ranked = candidates.map((candidate, index) => ({
+    ...candidate,
+    candidateRank: index + 1,
+    candidatesReturned: candidates.length,
+  }));
 
-  const mid4 = yield* sample(candidates.slice(20, 30), 4);
+  const top7 = ranked.slice(0, 7).map(inStratum("top"));
+
+  const mid4 = Chunk.map(yield* sample(ranked.slice(20, 30), 4), inStratum("mid"));
 
   const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
-  const random4 = yield* sample(
-    candidates.slice(7).filter(({ doi }) => !topAndMidDois.has(doi)),
-    4,
+  const random4 = Chunk.map(
+    yield* sample(
+      ranked.slice(7).filter(({ doi }) => !topAndMidDois.has(doi)),
+      4,
+    ),
+    inStratum("random"),
   );
 
   yield* Effect.logInfo("Selected survey papers").pipe(
@@ -69,7 +99,7 @@ export const getTopMidRandom = Effect.fnUntraced(function* (
     }),
   );
 
-  return [...top7, ...mid4, ...random4];
+  return yield* shuffleAll([...top7, ...mid4, ...random4]);
 });
 
 export const embeddingsLayer = Layer.effect(
@@ -100,7 +130,7 @@ export const embeddingsLayer = Layer.effect(
             ),
           ),
           Effect.catchTag("UnableToQuery", ({ cause }) => new UnableToGetSurveyPapers({ cause })),
-          Effect.andThen(getTopMidRandom),
+          Effect.andThen(getSurveyCandidates),
         );
 
         if (!Array.isNonEmptyReadonlyArray(result)) {

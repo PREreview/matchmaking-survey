@@ -13,7 +13,7 @@ beforeEach(() => {
 const run = <A>(effect: Effect.Effect<A, unknown, Db.DbClient>) =>
   Effect.runPromise(Db.migrate.pipe(Effect.andThen(effect), Effect.provide(layer)));
 
-const seed = Db.createBatch.pipe(
+const seed = Db.createBatch("csv").pipe(
   Effect.andThen((b) =>
     Db.insertScientist(b.id, "Test Scientist", "0000-0002-1234-5678", "test-token"),
   ),
@@ -29,6 +29,17 @@ describe("getSurveyState", () => {
   it("returns null for an unknown token", async () => {
     const result = await run(Survey.getSurveyState("bad-token"));
     expect(result).toBeNull();
+  });
+
+  it("shows a returning reviewer the order they left", async () => {
+    const [first, second] = await run(
+      seed.pipe(
+        Effect.andThen(() =>
+          Effect.all([Survey.getSurveyState("test-token"), Survey.getSurveyState("test-token")]),
+        ),
+      ),
+    );
+    expect(first!.papers.map((p) => p.id)).toEqual(second!.papers.map((p) => p.id));
   });
 
   it("returns scientist, papers, and empty responses for a fresh token", async () => {

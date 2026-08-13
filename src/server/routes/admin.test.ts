@@ -60,6 +60,18 @@ describe("importCsv", () => {
     expect(papers[0].title).toBe("Paper Alpha");
   });
 
+  it("keeps an imported survey in csv row order", async () => {
+    const papers = await run(
+      Admin.importCsv(csvText).pipe(
+        Effect.andThen(({ entries }) =>
+          Db.getScientistByToken(entries.find((e) => e.orcid === "0000-0001-1111-1111")!.token),
+        ),
+        Effect.andThen((s) => Db.listPapersForScientist(s!.id)),
+      ),
+    );
+    expect(papers.map((p) => p.title)).toEqual(["Paper Alpha", "Paper Beta"]);
+  });
+
   it("second import creates a new batch with new tokens", async () => {
     const { first, second } = await run(
       Admin.importCsv(csvText).pipe(
@@ -117,6 +129,55 @@ Ada Lovelace,0000-0001-1111-1111,Paper Alpha Reprint,Same paper again.,10.1/alph
 10.1/alpha,Ada Lovelace,Abstract for alpha.,0000-0001-1111-1111,Paper Alpha`;
     const result = await run(Admin.importCsv(reorderedCsv));
     expect(result.entries).toHaveLength(1);
+  });
+});
+
+describe("pairWorksWithProvenance", () => {
+  const provenance = [
+    { doi: "10.1/first", distance: 0.1, stratum: "top", candidateRank: 1, candidatesReturned: 500 },
+    {
+      doi: "10.1/second",
+      distance: 0.2,
+      stratum: "mid",
+      candidateRank: 24,
+      candidatesReturned: 500,
+    },
+    {
+      doi: "10.1/third",
+      distance: 0.3,
+      stratum: "random",
+      candidateRank: 91,
+      candidatesReturned: 500,
+    },
+  ];
+
+  it("keeps each work with its own provenance when OpenAlex answers in another order", () => {
+    const paired = Admin.pairWorksWithProvenance(provenance, [
+      { doi: "10.1/third", title: "Third" },
+      { doi: "10.1/first", title: "First" },
+      { doi: "10.1/second", title: "Second" },
+    ]);
+    expect(paired.map((p) => p.work.title)).toEqual(["First", "Second", "Third"]);
+    expect(paired.map((p) => p.provenance.stratum)).toEqual(["top", "mid", "random"]);
+    expect(paired.map((p) => p.provenance.candidateRank)).toEqual([1, 24, 91]);
+  });
+
+  it("matches a doi OpenAlex returned in a different case", () => {
+    const paired = Admin.pairWorksWithProvenance(provenance, [
+      { doi: "10.1/FIRST", title: "First" },
+    ]);
+    expect(paired).toHaveLength(1);
+    expect(paired[0].provenance.stratum).toBe("top");
+    expect(paired[0].provenance.distance).toBe(0.1);
+  });
+
+  it("drops a candidate OpenAlex had nothing for, without shifting the others", () => {
+    const paired = Admin.pairWorksWithProvenance(provenance, [
+      { doi: "10.1/third", title: "Third" },
+      { doi: "10.1/first", title: "First" },
+    ]);
+    expect(paired.map((p) => p.work.title)).toEqual(["First", "Third"]);
+    expect(paired.map((p) => p.provenance.candidateRank)).toEqual([1, 91]);
   });
 });
 
