@@ -72,7 +72,7 @@ export const generateEmbeddings = (
     Effect.mapError((cause) => new UnableToGetSurveyPapers({ cause })),
   );
 
-const truncateToModelLimit = (
+export const truncateToModelLimit = (
   text: string,
   maxTokens: number,
   tokenizer: typeof Tokenizer.Service,
