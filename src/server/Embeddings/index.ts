@@ -62,13 +62,11 @@ const inStratum =
   (stratum: Stratum) =>
   (candidate: RankedCandidate): SurveyCandidate => ({ ...candidate, stratum });
 
-const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<ReadonlyArray<A>> =>
-  Random.shuffle(items).pipe(
-    Effect.map((shuffled) => Chunk.toReadonlyArray(Chunk.take(shuffled, k))),
-  );
+const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<Chunk.Chunk<A>> =>
+  pipe(Random.shuffle(items), Effect.andThen(Chunk.take(k)));
 
-const shuffle = <A>(items: ReadonlyArray<A>): Effect.Effect<ReadonlyArray<A>> =>
-  sample(items, items.length);
+const shuffleAll = <A>(items: ReadonlyArray<A>): Effect.Effect<ReadonlyArray<A>> =>
+  pipe(sample(items, items.length), Effect.andThen(Chunk.toReadonlyArray));
 
 export const getSurveyCandidates = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
@@ -81,10 +79,10 @@ export const getSurveyCandidates = Effect.fnUntraced(function* (
 
   const top7 = ranked.slice(0, 7).map(inStratum("top"));
 
-  const mid4 = Array.map(yield* sample(ranked.slice(20, 30), 4), inStratum("mid"));
+  const mid4 = Chunk.map(yield* sample(ranked.slice(20, 30), 4), inStratum("mid"));
 
   const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
-  const random4 = Array.map(
+  const random4 = Chunk.map(
     yield* sample(
       ranked.slice(7).filter(({ doi }) => !topAndMidDois.has(doi)),
       4,
@@ -101,7 +99,7 @@ export const getSurveyCandidates = Effect.fnUntraced(function* (
     }),
   );
 
-  return yield* shuffle([...top7, ...mid4, ...random4]);
+  return yield* shuffleAll([...top7, ...mid4, ...random4]);
 });
 
 export const embeddingsLayer = Layer.effect(
