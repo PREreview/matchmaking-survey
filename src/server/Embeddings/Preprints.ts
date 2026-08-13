@@ -15,6 +15,11 @@ import { generateEmbeddings } from "./OpenRouter";
 import type { LanguageCode } from "iso-639-1";
 import { detectLanguage } from "./Cld";
 
+// `sql.in` binds one query parameter per DOI, and the SQL compiler spreads them onto an array
+// via `Function.apply`, which throws a RangeError once there are tens of thousands of them.
+// Chunking keeps each query's parameter list well under that limit.
+const FIND_EXISTING_DOIS_CHUNK_SIZE = 5000;
+
 export const findExistingDois = (
   dois: ReadonlyArray<Doi>,
   sql: SqlClient.SqlClient,
@@ -23,9 +28,18 @@ export const findExistingDois = (
     if (dois.length === 0) return new Set<Doi>();
 
     const normalized = dois.map((doi) => doi.toLowerCase());
-    const rows = yield* sql<{ doi: string }>`
-      SELECT doi FROM preprints WHERE ${sql.in("doi", normalized)}
-    `.pipe(Effect.mapError((cause) => new UnableToAddPreprints({ cause })));
+
+    const rows = yield* pipe(
+      Array.chunksOf(normalized, FIND_EXISTING_DOIS_CHUNK_SIZE),
+      Effect.forEach(
+        (chunk) => sql<{ doi: string }>`
+          SELECT doi FROM preprints WHERE ${sql.in("doi", chunk)}
+        `,
+        { concurrency: 4 },
+      ),
+      Effect.map(Array.flatten),
+      Effect.mapError((cause) => new UnableToAddPreprints({ cause })),
+    );
 
     return new Set(rows.map((row) => row.doi.toLowerCase()));
   });

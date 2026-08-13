@@ -242,27 +242,24 @@ const adminPagesRouter = HttpRouter.empty
     HttpRouter.post(
       "/add-preprints",
       Effect.gen(function* () {
-        const { dois } = yield* pipe(
-          HttpServerRequest.HttpServerRequest,
-          Effect.andThen((request) => request.urlParamsBody),
-          Effect.andThen(
-            Schema.decode(
-              UrlParams.schemaRecord(
-                Schema.Struct({
-                  dois: Schema.compose(
-                    Schema.compose(Schema.Trim, Schema.split("\n")),
-                    Schema.NonEmptyArray(Schema.compose(Schema.Trim, Schema.NonEmptyString)),
-                  ),
-                }),
-              ),
-            ),
-          ),
-        );
+        const fs = yield* FileSystem.FileSystem;
+        const req = yield* HttpServerRequest.HttpServerRequest;
+        const parts = yield* req.multipart;
+        const filePart = parts["dois-file"];
+        const file = Array.isArray(filePart) ? filePart[0] : filePart;
+        if (!Multipart.isPersistedFile(file)) {
+          return htmlResponse("Missing DOIs file", 400);
+        }
 
-        const executionId = yield* Admin.ingestPreprints.execute(
-          { dois: Array.dedupe(dois) },
-          { discard: true },
-        );
+        const text = yield* fs.readFileString(file.path);
+        const dois = yield* Schema.decode(
+          Schema.compose(
+            Schema.compose(Schema.Trim, Schema.split("\n")),
+            Schema.NonEmptyArray(Schema.compose(Schema.Trim, Schema.NonEmptyString)),
+          ),
+        )(text);
+
+        const executionId = yield* Admin.ingestPreprints.execute({ dois }, { discard: true });
 
         return yield* HttpServerResponse.redirect(`/admin/ingest/${executionId}`, {
           status: 303,

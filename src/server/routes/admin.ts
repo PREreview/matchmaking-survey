@@ -63,7 +63,7 @@ export const addPreprints = (
     const embeddings = yield* Embeddings;
     const openAlex = yield* OpenAlex;
 
-    const submitted = Array.dedupe(Array.map(dois, (doi) => doi.toLowerCase()));
+    const submitted = Array.map(dois, (doi) => doi.toLowerCase());
 
     const alreadyStored = yield* embeddings.existingDois(submitted);
 

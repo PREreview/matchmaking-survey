@@ -186,10 +186,17 @@ export function renderAdminPage({
       </div>
       <div style="${SECTION_STYLE}">
         <h2>Add preprints</h2>
-        <form method="post" action="/admin/add-preprints">
-          <label for="preprint-dois">Preprint DOIs</label>
+        <p>A text file with one DOI per line.</p>
+        <form method="post" action="/admin/add-preprints" enctype="multipart/form-data">
+          <label for="preprint-dois-file">Preprint DOIs file</label>
           <br />
-          <textarea name="dois" id="preprint-dois" required rows="3" style="width:100%;"></textarea>
+          <input
+            id="preprint-dois-file"
+            type="file"
+            name="dois-file"
+            accept=".txt,text/plain"
+            required
+          />
           <button class="button" type="submit">Add preprints</button>
         </form>
       </div>

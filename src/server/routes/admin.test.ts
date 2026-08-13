@@ -211,14 +211,14 @@ describe("addPreprints", () => {
     };
   };
 
-  it("lowercases and dedupes submitted DOIs and returns counts", async () => {
+  it("lowercases submitted DOIs without deduping and returns counts", async () => {
     const { run, calls } = runAddPreprints({ alreadyStored: ["10.2/beta"] });
 
     const result = await run(["10.1/Alpha", "10.1/alpha", "10.2/BETA"]);
 
-    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1, chunksWithFailures: 0 });
-    expect(calls.existingDois).toEqual([["10.1/alpha", "10.2/beta"]]);
-    expect(calls.getWorks).toEqual([["10.1/alpha"]]);
+    expect(result).toEqual({ submitted: 3, alreadyStored: 1, ingested: 2, chunksWithFailures: 0 });
+    expect(calls.existingDois).toEqual([["10.1/alpha", "10.1/alpha", "10.2/beta"]]);
+    expect(calls.getWorks).toEqual([["10.1/alpha", "10.1/alpha"]]);
     expect(calls.addPreprints).toHaveLength(1);
   });
 
