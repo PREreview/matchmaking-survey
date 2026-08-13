@@ -8,7 +8,12 @@ import {
   Tokenizer,
 } from "./Shared";
 import { ensureResearchAreaWorksTable, getEmbeddingsGeneratingAsNeeded } from "./ResearchAreaWorks";
-import { createMissingEmbeddings, ensurePreprintsTable, getRelatedDois } from "./Preprints";
+import {
+  createMissingEmbeddings,
+  ensurePreprintsTable,
+  findExistingDois,
+  getRelatedDois,
+} from "./Preprints";
 import { PgClient } from "@effect/sql-pg";
 import { calcFloat32ArrayMean } from "../../Float32Array";
 import type { LanguageCode } from "iso-639-1";
@@ -41,6 +46,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
       UnableToGetSurveyPapers
     >;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
+    existingDois: (input: ReadonlyArray<Doi>) => Effect.Effect<Set<Doi>, UnableToAddPreprints>;
   }
 >() {}
 
@@ -112,6 +118,7 @@ export const embeddingsLayer = Layer.effect(
         return result;
       }),
       addPreprints: createMissingEmbeddings(apiKey, httpClient, sql, tokenizer),
+      existingDois: (dois) => findExistingDois(dois, sql),
     };
   }),
 );
