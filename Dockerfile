@@ -28,6 +28,7 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/dist ./dist
 
 RUN mkdir -p /data
+COPY model ./model
 
 EXPOSE 3000
 

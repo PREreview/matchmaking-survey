@@ -5,7 +5,7 @@ DATA  := $(PWD)/data
 dev: node_modules .env start-services
 	mkdir -p data
 	POSTGRES_URL=postgres://postgres:password@$(shell docker compose port postgres 5432) \
-	export $$(grep -v '^#' .env | xargs) && pnpm exec tsx watch src/server/index.ts
+	pnpm exec tsx watch --env-file .env src/server/index.ts
 
 .env:
 	cp .env.example .env

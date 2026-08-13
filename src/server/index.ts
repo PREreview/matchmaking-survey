@@ -1,6 +1,5 @@
 import {
   FileSystem,
-  HttpClient,
   HttpMiddleware,
   HttpRouter,
   HttpServer,
@@ -477,36 +476,20 @@ const ServerLive = app.pipe(HttpServer.serve(HttpMiddleware.logger), HttpServer.
 
 const GetTokenizerJson = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
-  const file = "data/tokenizer.json";
+  const file = "model/tokenizer.json";
 
   return yield* pipe(
     fileSystem.readFileString(file),
-    Effect.catchTag("SystemError", () =>
-      pipe(
-        HttpClient.get("https://huggingface.co/thenlper/gte-large/resolve/main/tokenizer.json"),
-        Effect.andThen((response) => response.text),
-        Effect.tap((text) => fileSystem.writeFileString(file, text)),
-      ),
-    ),
     Effect.andThen(Schema.decode(Schema.parseJson(Schema.Object))),
   );
 });
 
 const GetTokenizerConfig = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
-  const file = "data/tokenizer_config.json";
+  const file = "model/tokenizer_config.json";
 
   return yield* pipe(
     fileSystem.readFileString(file),
-    Effect.catchTag("SystemError", () =>
-      pipe(
-        HttpClient.get(
-          "https://huggingface.co/thenlper/gte-large/resolve/main/tokenizer_config.json",
-        ),
-        Effect.andThen((response) => response.text),
-        Effect.tap((text) => fileSystem.writeFileString(file, text)),
-      ),
-    ),
     Effect.andThen(Schema.decode(Schema.parseJson(Schema.Object))),
   );
 });
@@ -535,17 +518,6 @@ const main = Db.migrate.pipe(
 
               return new HuggingFaceTokenizer(tokenizerJson, tokenizerConfig);
             }),
-          ).pipe(
-            Layer.provide(
-              Layer.effect(
-                HttpClient.HttpClient,
-                Effect.gen(function* () {
-                  const httpClient = yield* HttpClient.HttpClient;
-
-                  return HttpClient.followRedirects(httpClient, 1);
-                }),
-              ),
-            ),
           ),
         ),
       ),
