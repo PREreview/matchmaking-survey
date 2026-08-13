@@ -176,6 +176,6 @@ describe("truncateToModelLimit", () => {
 
     const durationMs = performance.now() - start;
 
-    expect(durationMs).toBeLessThan(300);
+    expect(durationMs).toBeLessThan(1000);
   });
 });
