@@ -55,6 +55,11 @@ export const openAlexLayer = Layer.effect(
   }),
 );
 
+const hasTitleAndAbstract = (openAlexWork: typeof WorkSchema.Type): openAlexWork is Work =>
+  typeof openAlexWork.title === "string" &&
+  openAlexWork.title !== "" &&
+  openAlexWork.abstract !== null;
+
 const getWorks = (
   apiKey: Redacted.Redacted,
   httpClient: HttpClient.HttpClient,
@@ -85,11 +90,7 @@ const getWorks = (
 
           const parsed = yield* HttpClientResponse.schemaBodyJson(ListOfWorksSchema)(response);
 
-          return Array.filter(
-            parsed.results,
-            (work): work is Work =>
-              typeof work.title === "string" && work.title !== "" && work.abstract !== null,
-          );
+          return pipe(parsed.results, Array.filter(hasTitleAndAbstract));
         }),
         { concurrency: "inherit" },
       ).pipe(
