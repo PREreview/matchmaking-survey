@@ -17,7 +17,7 @@ import * as Db from "./db.js";
 import * as SurveyViews from "./views/survey.js";
 import * as AdminViews from "./views/admin.js";
 import { EmbeddingsClient, embeddingsLayer } from "./Embeddings/index.js";
-import { openAlexLayer } from "./OpenAles/index.js";
+import { openAlexLayer } from "./OpenAlex/index.js";
 import { orcidLayer } from "./Orcid.js";
 import { PgClient } from "@effect/sql-pg";
 import { LoggingHttpClientLayer } from "./LoggingHttpClient.js";

@@ -3,7 +3,7 @@ import { Data, Array, Effect, Schema, flow, Struct, pipe, Option } from "effect"
 import { randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
-import { OpenAlex } from "../OpenAles/index.js";
+import { OpenAlex } from "../OpenAlex/index.js";
 import { Orcid } from "../Orcid.js";
 import { Activity, Workflow } from "@effect/workflow";
 import iso6391 from "iso-639-1";
