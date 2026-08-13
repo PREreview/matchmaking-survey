@@ -1,5 +1,5 @@
 import { flow } from "effect";
-import { decode } from "he";
+import he from "he";
 import stripTags from "striptags";
 import type { Work } from "./Work";
 
@@ -8,7 +8,7 @@ const MAX_DECODE_PASSES = 3;
 const decodeEntitiesRepeatedly = (input: string): string => {
   let decoded = input;
   for (let pass = 0; pass < MAX_DECODE_PASSES; pass++) {
-    const next = decode(decoded);
+    const next = he.decode(decoded);
     if (next === decoded) break;
     decoded = next;
   }
