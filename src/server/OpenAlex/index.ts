@@ -18,21 +18,12 @@ import {
   Option,
   Equivalence,
 } from "effect";
+import type { Doi, Work } from "./Work";
+import { sanitiseTitleAndAbstract } from "./SanitiseTitleAndAbstract";
 
 export class UnableToGetWorks extends Data.TaggedError("UnableToGetWorks")<{
   cause?: unknown;
 }> {}
-
-type Doi = string;
-
-type OrcidId = string;
-
-type Work = {
-  doi: Doi;
-  title: string;
-  abstract: string;
-  authors: ReadonlyArray<OrcidId>;
-};
 
 export class OpenAlex extends Context.Tag("OpenAlex")<
   OpenAlex,
@@ -91,7 +82,11 @@ const getWorks = (
 
           const parsed = yield* HttpClientResponse.schemaBodyJson(ListOfWorksSchema)(response);
 
-          return pipe(parsed.results, Array.filter(hasTitleAndAbstract));
+          return pipe(
+            parsed.results,
+            Array.filter(hasTitleAndAbstract),
+            Array.map(sanitiseTitleAndAbstract),
+          );
         }),
         { concurrency: "inherit" },
       ).pipe(
