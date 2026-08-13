@@ -44,10 +44,8 @@ export class Embeddings extends Context.Tag("Embeddings")<
   }
 >() {}
 
-const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<ReadonlyArray<A>> =>
-  Random.shuffle(items).pipe(
-    Effect.map((shuffled) => Chunk.toReadonlyArray(Chunk.take(shuffled, k))),
-  );
+const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<Chunk.Chunk<A>> =>
+  pipe(Random.shuffle(items), Effect.andThen(Chunk.take(k)));
 
 export const getTopMidRandom = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
