@@ -81,6 +81,47 @@ function renderBatch(origin: string, batch: Batch, highlightBatchId: number | nu
   </details>`;
 }
 
+export function renderIngestStatusPage() {
+  return layout({
+    title: "Ingesting preprints — Survey Admin",
+    body: html`<div style="${PAGE_STYLE}">
+      <h1>Ingesting preprints</h1>
+      <span class="loader"></span>
+      <p>Adding preprints to the database. This may take a while.</p>
+    </div>`,
+  });
+}
+
+export function renderIngestDonePage({
+  submitted,
+  alreadyStored,
+  ingested,
+}: {
+  submitted: number;
+  alreadyStored: number;
+  ingested: number;
+}) {
+  return layout({
+    title: "Preprints added — Survey Admin",
+    body: html`<div style="${PAGE_STYLE}">
+      <h1>Preprints added</h1>
+      <p>${submitted} DOIs submitted, ${alreadyStored} already present, ${ingested} ingested.</p>
+      <p><a href="/admin">Back to admin</a></p>
+    </div>`,
+  });
+}
+
+export function renderIngestFailedPage() {
+  return layout({
+    title: "Unable to ingest preprints — Survey Admin",
+    body: html`<div style="${PAGE_STYLE}">
+      <h1>Unable to ingest preprints</h1>
+      <p>Something went wrong while adding the preprints. Please try again later.</p>
+      <p><a href="/admin">Back to admin</a></p>
+    </div>`,
+  });
+}
+
 export function renderAdminPage({
   origin,
   batches,

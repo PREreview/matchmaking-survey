@@ -1,6 +1,6 @@
 import { parse } from "csv-parse/sync";
 import { Data, Array, Effect, Schema, flow, Struct, pipe, Option } from "effect";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
 import { UnableToAddPreprints } from "../Embeddings/Shared.js";
@@ -155,6 +155,46 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
         "UnableToGetSurveyPapers",
         "UnableToGetWorks",
         (cause) => new UnableToCreateSurvey({ cause }),
+      ),
+    ),
+  }),
+);
+
+export class UnableToIngestPreprints extends Schema.TaggedError<UnableToIngestPreprints>()(
+  "UnableToIngestPreprints",
+  { cause: Schema.optional(Schema.Defect) },
+) {}
+
+export const ingestPreprints = Workflow.make({
+  name: "IngestPreprints",
+  payload: {
+    dois: Schema.NonEmptyArray(Schema.NonEmptyString),
+  },
+  success: Schema.Struct({
+    submitted: Schema.Number,
+    alreadyStored: Schema.Number,
+    ingested: Schema.Number,
+  }),
+  error: UnableToIngestPreprints,
+  idempotencyKey: ({ dois }) => {
+    const normalized = [...new Set(dois.map((doi) => doi.toLowerCase()))].sort();
+    return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+  },
+});
+
+export const ingestPreprintsLayer = ingestPreprints.toLayer(({ dois }) =>
+  Activity.make({
+    name: ingestPreprints.name,
+    success: ingestPreprints.successSchema,
+    error: ingestPreprints.errorSchema,
+    execute: addPreprints(dois).pipe(
+      Effect.tapError((error) =>
+        Effect.logError("Failed to ingest preprints").pipe(Effect.annotateLogs({ error })),
+      ),
+      Effect.catchTag(
+        "UnableToGetWorks",
+        "UnableToAddPreprints",
+        (cause) => new UnableToIngestPreprints({ cause }),
       ),
     ),
   }),

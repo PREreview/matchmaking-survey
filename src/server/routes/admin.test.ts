@@ -1,5 +1,6 @@
 import { SqliteClient } from "@effect/sql-sqlite-node";
 import { Array, Effect, Layer } from "effect";
+import { WorkflowEngine } from "@effect/workflow";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as Db from "../db.js";
 import * as Admin from "./admin.js";
@@ -252,5 +253,59 @@ describe("addPreprints", () => {
     expect(result).toEqual({ submitted: 2, alreadyStored: 0, ingested: 1 });
     expect(calls.getWorks).toEqual([["10.1/a", "10.1/b"]]);
     expect(calls.addPreprints).toHaveLength(1);
+  });
+});
+
+describe("ingestPreprints", () => {
+  it("derives a deterministic execution id from normalized DOIs", async () => {
+    const run = (dois: Array.NonEmptyReadonlyArray<string>) =>
+      Effect.runPromise(Admin.ingestPreprints.executionId({ dois }));
+
+    const sameOrder = await run(["10.1/B", "10.1/A", "10.1/b"]);
+    const resubmitted = await run(["10.1/a", "10.1/b"]);
+    const different = await run(["10.1/a", "10.1/b", "10.1/c"]);
+
+    expect(sameOrder).toBe(resubmitted);
+    expect(sameOrder).not.toBe(different);
+    expect(sameOrder).toMatch(/^[0-9a-f]+$/);
+  });
+
+  it("runs addPreprints through the workflow engine and returns counts", async () => {
+    const embeddingsService = {
+      getSurveyPapers: () => Effect.die("getSurveyPapers should not be called"),
+      existingDois: (_dois: ReadonlyArray<Doi>) => Effect.succeed(new Set(["10.1/b"])),
+      addPreprints: (_works: ReadonlyArray<Paper>) => Effect.succeed(void 0),
+    };
+
+    const openAlexService = {
+      getWorks: (dois: Array.NonEmptyReadonlyArray<Doi>) =>
+        Effect.succeed(
+          dois.map((doi) => ({
+            doi,
+            title: `Title for ${doi}`,
+            abstract: "Abstract.",
+            authors: [],
+          })),
+        ),
+    };
+
+    const layer = Layer.provideMerge(
+      Admin.ingestPreprintsLayer,
+      Layer.mergeAll(
+        Layer.succeed(Embeddings, embeddingsService),
+        Layer.succeed(OpenAlex, openAlexService),
+        WorkflowEngine.layerMemory,
+      ),
+    );
+
+    const result = await Effect.runPromise(
+      Admin.ingestPreprints
+        .execute({
+          dois: ["10.1/A", "10.1/b"] as Array.NonEmptyReadonlyArray<string>,
+        })
+        .pipe(Effect.provide(layer)),
+    );
+
+    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1 });
   });
 });

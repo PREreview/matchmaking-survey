@@ -259,9 +259,36 @@ const adminPagesRouter = HttpRouter.empty
           ),
         );
 
-        yield* Admin.addPreprints(Array.dedupe(dois));
+        const executionId = yield* Admin.ingestPreprints.execute(
+          { dois: Array.dedupe(dois) },
+          { discard: true },
+        );
 
-        return yield* HttpServerResponse.redirect(`/admin`, { status: 303 });
+        return yield* HttpServerResponse.redirect(`/admin/ingest/${executionId}`, {
+          status: 303,
+        });
+      }),
+    ),
+    HttpRouter.get(
+      "/ingest/:key",
+      Effect.gen(function* () {
+        const params = yield* HttpRouter.params;
+        const key = params["key"] ?? "";
+        const result = yield* Admin.ingestPreprints.poll(key);
+
+        if (typeof result === "undefined" || result._tag === "Suspended") {
+          return htmlResponse(AdminViews.renderIngestStatusPage().__html).pipe(
+            HttpServerResponse.setHeader("Refresh", "1"),
+          );
+        }
+
+        return Exit.match(result.exit, {
+          onFailure: () => htmlResponse(AdminViews.renderIngestFailedPage().__html, 500),
+          onSuccess: ({ submitted, alreadyStored, ingested }) =>
+            htmlResponse(
+              AdminViews.renderIngestDonePage({ submitted, alreadyStored, ingested }).__html,
+            ),
+        });
       }),
     ),
     HttpRouter.post(
@@ -486,7 +513,7 @@ const main = Db.migrate.pipe(
   Effect.andThen(Layer.launch(ServerLive)),
   Effect.provide(
     pipe(
-      Admin.createSurveyLayer,
+      Layer.mergeAll(Admin.createSurveyLayer, Admin.ingestPreprintsLayer),
       Layer.provideMerge(Layer.mergeAll(embeddingsLayer, openAlexLayer, orcidLayer)),
       Layer.provideMerge(
         Layer.mergeAll(
