@@ -58,7 +58,8 @@ export const openAlexLayer = Layer.effect(
 const hasTitleAndAbstract = (openAlexWork: typeof WorkSchema.Type): openAlexWork is Work =>
   typeof openAlexWork.title === "string" &&
   openAlexWork.title !== "" &&
-  openAlexWork.abstract !== null;
+  openAlexWork.abstract !== null &&
+  openAlexWork.abstract !== "";
 
 const getWorks = (
   apiKey: Redacted.Redacted,
