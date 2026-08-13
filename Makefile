@@ -1,5 +1,4 @@
 IMAGE := match-feedback-survey
-DATA  := $(PWD)/data
 
 .PHONY: dev
 dev: node_modules .env start-services
@@ -18,14 +17,15 @@ start-services:
 	docker compose up --detach postgres
 
 .PHONY: prod
-prod: .env
+prod: .env start-services
 	docker build -t $(IMAGE) .
-	mkdir -p $(DATA)
-	export $$(grep -v '^#' .env | xargs) && docker run --rm -p $$PORT:$$PORT \
-		-e ADMIN_PASSWORD=$$ADMIN_PASSWORD \
-		-e PORT=$$PORT \
-		-e DB_FILE=/data/survey.db \
-		-v $(DATA):/data \
+	docker run --rm \
+		--network $(shell docker inspect -f '{{range $$k,$$v := .NetworkSettings.Networks}}{{$$k}}{{end}}' $(shell docker compose ps -q postgres)) \
+		--env-file .env \
+		--env POSTGRES_URL=postgres://postgres:password@postgres:5432 \
+		--env DB_FILE=/data/survey.db \
+		-v $(PWD)/data:/data \
+		-p 3000:3000 \
 		$(IMAGE)
 
 .PHONY: clear
