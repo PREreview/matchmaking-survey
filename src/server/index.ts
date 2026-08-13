@@ -464,7 +464,7 @@ const ServerLive = app.pipe(HttpServer.serve(HttpMiddleware.logger), HttpServer.
 
 const GetTokenizerJson = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
-  const file = "data/tokenizer.json";
+  const file = "model/tokenizer.json";
 
   return yield* pipe(
     fileSystem.readFileString(file),
@@ -474,7 +474,7 @@ const GetTokenizerJson = Effect.gen(function* () {
 
 const GetTokenizerConfig = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
-  const file = "data/tokenizer_config.json";
+  const file = "model/tokenizer_config.json";
 
   return yield* pipe(
     fileSystem.readFileString(file),
