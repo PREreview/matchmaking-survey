@@ -1,8 +1,11 @@
 import { SqliteClient } from "@effect/sql-sqlite-node";
-import { Effect } from "effect";
+import { Array, Effect, Layer } from "effect";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as Db from "../db.js";
 import * as Admin from "./admin.js";
+import type { Doi, Paper } from "../Embeddings/Shared.js";
+import { Embeddings } from "../Embeddings/index.js";
+import { OpenAlex } from "../OpenAlex/index.js";
 
 let layer: ReturnType<typeof SqliteClient.layer>;
 
@@ -147,5 +150,107 @@ describe("getExportRows", () => {
     expect(rows[0].rating).toBe(5);
     expect(rows[0].doi).toBe("10.1/gamma");
     expect(rows[0].rating_label_5).toBe("This is my research area");
+  });
+});
+
+describe("addPreprints", () => {
+  const runAddPreprints = (options: {
+    alreadyStored?: ReadonlyArray<string>;
+    getWorks?: (dois: Array.NonEmptyReadonlyArray<string>) => ReadonlyArray<Paper>;
+  }) => {
+    const calls: {
+      existingDois: Doi[][];
+      getWorks: Doi[][];
+      addPreprints: Paper[][];
+    } = { existingDois: [], getWorks: [], addPreprints: [] };
+
+    const embeddingsService = {
+      getSurveyPapers: () => Effect.die("getSurveyPapers should not be called"),
+      existingDois: (dois: ReadonlyArray<Doi>) => {
+        calls.existingDois.push([...dois]);
+        return Effect.succeed(
+          new Set((options.alreadyStored ?? []).map((doi) => doi.toLowerCase())),
+        );
+      },
+      addPreprints: (works: ReadonlyArray<Paper>) => {
+        calls.addPreprints.push([...works]);
+        return Effect.succeed(void 0);
+      },
+    };
+
+    const openAlexService = {
+      getWorks: (dois: Array.NonEmptyReadonlyArray<Doi>) => {
+        calls.getWorks.push([...dois]);
+        return Effect.succeed(
+          options.getWorks
+            ? options.getWorks(dois)
+            : dois.map((doi) => ({
+                doi,
+                title: `Title for ${doi}`,
+                abstract: "Abstract.",
+                authors: [],
+              })),
+        );
+      },
+    };
+
+    return {
+      run: (dois: ReadonlyArray<string>) =>
+        Effect.runPromise(
+          Admin.addPreprints(dois as Array.NonEmptyReadonlyArray<string>).pipe(
+            Effect.provide(Layer.succeed(Embeddings, embeddingsService)),
+            Effect.provide(Layer.succeed(OpenAlex, openAlexService)),
+          ),
+        ),
+      calls,
+    };
+  };
+
+  it("lowercases and dedupes submitted DOIs and returns counts", async () => {
+    const { run, calls } = runAddPreprints({ alreadyStored: ["10.2/beta"] });
+
+    const result = await run(["10.1/Alpha", "10.1/alpha", "10.2/BETA"]);
+
+    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1 });
+    expect(calls.existingDois).toEqual([["10.1/alpha", "10.2/beta"]]);
+    expect(calls.getWorks).toEqual([["10.1/alpha"]]);
+    expect(calls.addPreprints).toHaveLength(1);
+  });
+
+  it("skips already-stored DOIs entirely", async () => {
+    const { run, calls } = runAddPreprints({ alreadyStored: ["10.1/a", "10.1/b"] });
+
+    const result = await run(["10.1/a", "10.1/b"]);
+
+    expect(result).toEqual({ submitted: 2, alreadyStored: 2, ingested: 0 });
+    expect(calls.getWorks).toEqual([]);
+    expect(calls.addPreprints).toEqual([]);
+  });
+
+  it("chunks a large list into batches of 500", async () => {
+    const { run, calls } = runAddPreprints({});
+    const dois = Array.makeBy(1001, (i) => `10.1/x${i}`);
+
+    const result = await run(dois);
+
+    expect(result.submitted).toBe(1001);
+    expect(result.ingested).toBe(1001);
+    expect(calls.getWorks.map((c) => c.length)).toEqual([500, 500, 1]);
+    expect(calls.addPreprints.map((w) => w.length)).toEqual([500, 500, 1]);
+  });
+
+  it("counts ingested as works returned rather than submitted DOIs", async () => {
+    const { run, calls } = runAddPreprints({
+      getWorks: (dois) =>
+        dois
+          .filter((doi) => doi === "10.1/a")
+          .map((doi) => ({ doi, title: `Title for ${doi}`, abstract: "Abstract.", authors: [] })),
+    });
+
+    const result = await run(["10.1/a", "10.1/b"]);
+
+    expect(result).toEqual({ submitted: 2, alreadyStored: 0, ingested: 1 });
+    expect(calls.getWorks).toEqual([["10.1/a", "10.1/b"]]);
+    expect(calls.addPreprints).toHaveLength(1);
   });
 });

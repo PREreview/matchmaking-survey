@@ -3,7 +3,8 @@ import { Data, Array, Effect, Schema, flow, Struct, pipe, Option } from "effect"
 import { randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
-import { OpenAlex } from "../OpenAlex/index.js";
+import { UnableToAddPreprints } from "../Embeddings/Shared.js";
+import { OpenAlex, UnableToGetWorks } from "../OpenAlex/index.js";
 import { Orcid } from "../Orcid.js";
 import { Activity, Workflow } from "@effect/workflow";
 import iso6391 from "iso-639-1";
@@ -49,14 +50,37 @@ const findDuplicateOrcidDoiRows = (rows: CsvRow[]) => {
   return duplicates;
 };
 
-export const addPreprints = (dois: Array.NonEmptyReadonlyArray<string>) =>
+const ADD_PREPRINTS_CHUNK_SIZE = 500;
+
+export const addPreprints = (
+  dois: Array.NonEmptyReadonlyArray<string>,
+): Effect.Effect<
+  { submitted: number; alreadyStored: number; ingested: number },
+  UnableToGetWorks | UnableToAddPreprints,
+  Embeddings | OpenAlex
+> =>
   Effect.gen(function* () {
     const embeddings = yield* Embeddings;
     const openAlex = yield* OpenAlex;
 
-    const works = yield* openAlex.getWorks(dois);
+    const submitted = Array.dedupe(Array.map(dois, (doi) => doi.toLowerCase()));
 
-    yield* embeddings.addPreprints(works);
+    const alreadyStored = yield* embeddings.existingDois(submitted);
+
+    const toIngest = submitted.filter((doi) => !alreadyStored.has(doi));
+
+    let ingested = 0;
+    for (const chunk of Array.chunksOf(toIngest, ADD_PREPRINTS_CHUNK_SIZE)) {
+      const works = yield* openAlex.getWorks(chunk);
+      yield* embeddings.addPreprints(works);
+      ingested += works.length;
+
+      yield* Effect.logInfo("Ingested preprints chunk").pipe(
+        Effect.annotateLogs({ chunkSize: chunk.length, ingested: works.length }),
+      );
+    }
+
+    return { submitted: submitted.length, alreadyStored: alreadyStored.size, ingested };
   });
 
 export const createSurvey = Workflow.make({
