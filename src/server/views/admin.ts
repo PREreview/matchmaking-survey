@@ -96,16 +96,21 @@ export function renderIngestDonePage({
   submitted,
   alreadyStored,
   ingested,
+  chunksWithFailures,
 }: {
   submitted: number;
   alreadyStored: number;
   ingested: number;
+  chunksWithFailures: number;
 }) {
   return layout({
     title: "Preprints added — Survey Admin",
     body: html`<div style="${PAGE_STYLE}">
       <h1>Preprints added</h1>
       <p>${submitted} DOIs submitted, ${alreadyStored} already present, ${ingested} ingested.</p>
+      ${chunksWithFailures > 0
+        ? html`<p>${chunksWithFailures} chunk(s) failed to ingest. Check the logs for details.</p>`
+        : ""}
       <p><a href="/admin">Back to admin</a></p>
     </div>`,
   });

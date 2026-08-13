@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import * as Db from "../db.js";
 import * as Admin from "./admin.js";
 import type { Doi, Paper } from "../Embeddings/Shared.js";
+import { UnableToAddPreprints } from "../Embeddings/Shared.js";
 import { Embeddings } from "../Embeddings/index.js";
-import { OpenAlex } from "../OpenAlex/index.js";
+import { OpenAlex, UnableToGetWorks } from "../OpenAlex/index.js";
 
 let layer: ReturnType<typeof SqliteClient.layer>;
 
@@ -157,7 +158,10 @@ describe("getExportRows", () => {
 describe("addPreprints", () => {
   const runAddPreprints = (options: {
     alreadyStored?: ReadonlyArray<string>;
-    getWorks?: (dois: Array.NonEmptyReadonlyArray<string>) => ReadonlyArray<Paper>;
+    getWorks?: (
+      dois: Array.NonEmptyReadonlyArray<string>,
+    ) => Effect.Effect<ReadonlyArray<Paper>, UnableToGetWorks>;
+    addPreprints?: (works: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
   }) => {
     const calls: {
       existingDois: Doi[][];
@@ -175,23 +179,23 @@ describe("addPreprints", () => {
       },
       addPreprints: (works: ReadonlyArray<Paper>) => {
         calls.addPreprints.push([...works]);
-        return Effect.succeed(void 0);
+        return options.addPreprints ? options.addPreprints(works) : Effect.succeed(void 0);
       },
     };
 
     const openAlexService = {
       getWorks: (dois: Array.NonEmptyReadonlyArray<Doi>) => {
         calls.getWorks.push([...dois]);
-        return Effect.succeed(
-          options.getWorks
-            ? options.getWorks(dois)
-            : dois.map((doi) => ({
+        return options.getWorks
+          ? options.getWorks(dois)
+          : Effect.succeed(
+              dois.map((doi) => ({
                 doi,
                 title: `Title for ${doi}`,
                 abstract: "Abstract.",
                 authors: [],
               })),
-        );
+            );
       },
     };
 
@@ -212,7 +216,7 @@ describe("addPreprints", () => {
 
     const result = await run(["10.1/Alpha", "10.1/alpha", "10.2/BETA"]);
 
-    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1 });
+    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1, chunksWithFailures: 0 });
     expect(calls.existingDois).toEqual([["10.1/alpha", "10.2/beta"]]);
     expect(calls.getWorks).toEqual([["10.1/alpha"]]);
     expect(calls.addPreprints).toHaveLength(1);
@@ -223,7 +227,7 @@ describe("addPreprints", () => {
 
     const result = await run(["10.1/a", "10.1/b"]);
 
-    expect(result).toEqual({ submitted: 2, alreadyStored: 2, ingested: 0 });
+    expect(result).toEqual({ submitted: 2, alreadyStored: 2, ingested: 0, chunksWithFailures: 0 });
     expect(calls.getWorks).toEqual([]);
     expect(calls.addPreprints).toEqual([]);
   });
@@ -236,6 +240,7 @@ describe("addPreprints", () => {
 
     expect(result.submitted).toBe(1001);
     expect(result.ingested).toBe(1001);
+    expect(result.chunksWithFailures).toBe(0);
     expect(calls.getWorks.map((c) => c.length)).toEqual([500, 500, 1]);
     expect(calls.addPreprints.map((w) => w.length)).toEqual([500, 500, 1]);
   });
@@ -243,16 +248,70 @@ describe("addPreprints", () => {
   it("counts ingested as works returned rather than submitted DOIs", async () => {
     const { run, calls } = runAddPreprints({
       getWorks: (dois) =>
-        dois
-          .filter((doi) => doi === "10.1/a")
-          .map((doi) => ({ doi, title: `Title for ${doi}`, abstract: "Abstract.", authors: [] })),
+        Effect.succeed(
+          dois
+            .filter((doi) => doi === "10.1/a")
+            .map((doi) => ({ doi, title: `Title for ${doi}`, abstract: "Abstract.", authors: [] })),
+        ),
     });
 
     const result = await run(["10.1/a", "10.1/b"]);
 
-    expect(result).toEqual({ submitted: 2, alreadyStored: 0, ingested: 1 });
+    expect(result).toEqual({ submitted: 2, alreadyStored: 0, ingested: 1, chunksWithFailures: 0 });
     expect(calls.getWorks).toEqual([["10.1/a", "10.1/b"]]);
     expect(calls.addPreprints).toHaveLength(1);
+  });
+
+  it("continues with the next chunk when one chunk fails to fetch works", async () => {
+    const dois = Array.makeBy(501, (i) => `10.1/x${i}`);
+    const { run, calls } = runAddPreprints({
+      getWorks: (chunk) =>
+        chunk.includes("10.1/x0")
+          ? Effect.fail(new UnableToGetWorks({ cause: "boom" }))
+          : Effect.succeed(
+              chunk.map((doi) => ({
+                doi,
+                title: `Title for ${doi}`,
+                abstract: "Abstract.",
+                authors: [],
+              })),
+            ),
+    });
+
+    const result = await run(dois);
+
+    expect(result).toEqual({
+      submitted: 501,
+      alreadyStored: 0,
+      ingested: 1,
+      chunksWithFailures: 1,
+    });
+    expect(calls.getWorks).toHaveLength(2);
+    expect(calls.addPreprints).toHaveLength(1);
+  });
+
+  it("continues with the next chunk when one chunk fails to be stored", async () => {
+    const dois = Array.makeBy(501, (i) => `10.1/x${i}`);
+    let call = 0;
+    const { run, calls } = runAddPreprints({
+      addPreprints: () => {
+        call++;
+        return call === 1
+          ? Effect.fail(new UnableToAddPreprints({ cause: "boom" }))
+          : Effect.succeed(void 0);
+      },
+    });
+
+    const result = await run(dois);
+
+    expect(result).toEqual({
+      submitted: 501,
+      alreadyStored: 0,
+      ingested: 1,
+      chunksWithFailures: 1,
+    });
+    expect(calls.getWorks).toHaveLength(2);
+    expect(calls.addPreprints).toHaveLength(2);
   });
 });
 
@@ -306,6 +365,6 @@ describe("ingestPreprints", () => {
         .pipe(Effect.provide(layer)),
     );
 
-    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1 });
+    expect(result).toEqual({ submitted: 2, alreadyStored: 1, ingested: 1, chunksWithFailures: 0 });
   });
 });

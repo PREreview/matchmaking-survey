@@ -284,9 +284,14 @@ const adminPagesRouter = HttpRouter.empty
 
         return Exit.match(result.exit, {
           onFailure: () => htmlResponse(AdminViews.renderIngestFailedPage().__html, 500),
-          onSuccess: ({ submitted, alreadyStored, ingested }) =>
+          onSuccess: ({ submitted, alreadyStored, ingested, chunksWithFailures }) =>
             htmlResponse(
-              AdminViews.renderIngestDonePage({ submitted, alreadyStored, ingested }).__html,
+              AdminViews.renderIngestDonePage({
+                submitted,
+                alreadyStored,
+                ingested,
+                chunksWithFailures,
+              }).__html,
             ),
         });
       }),

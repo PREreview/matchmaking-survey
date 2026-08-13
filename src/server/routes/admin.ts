@@ -8,6 +8,7 @@ import { OpenAlex, UnableToGetWorks } from "../OpenAlex/index.js";
 import { Orcid } from "../Orcid.js";
 import { Activity, Workflow } from "@effect/workflow";
 import iso6391 from "iso-639-1";
+import { catchAll } from "effect/Effect";
 
 const Iso6391Schema = pipe(Schema.String, Schema.filter(iso6391.validate));
 
@@ -55,8 +56,8 @@ const ADD_PREPRINTS_CHUNK_SIZE = 500;
 export const addPreprints = (
   dois: Array.NonEmptyReadonlyArray<string>,
 ): Effect.Effect<
-  { submitted: number; alreadyStored: number; ingested: number },
-  UnableToGetWorks | UnableToAddPreprints,
+  { submitted: number; alreadyStored: number; ingested: number; chunksWithFailures: number },
+  UnableToAddPreprints,
   Embeddings | OpenAlex
 > =>
   Effect.gen(function* () {
@@ -70,17 +71,39 @@ export const addPreprints = (
     const toIngest = submitted.filter((doi) => !alreadyStored.has(doi));
 
     let ingested = 0;
+    let chunksWithFailures = 0;
     for (const chunk of Array.chunksOf(toIngest, ADD_PREPRINTS_CHUNK_SIZE)) {
-      const works = yield* openAlex.getWorks(chunk);
-      yield* embeddings.addPreprints(works);
-      ingested += works.length;
+      const result = yield* Effect.gen(function* () {
+        const works = yield* openAlex.getWorks(chunk);
+        yield* embeddings.addPreprints(works);
+        return works;
+      }).pipe(
+        Effect.tapError((error) =>
+          Effect.logError("Failed to ingest preprints chunk").pipe(
+            Effect.annotateLogs({ chunkSize: chunk.length, error }),
+          ),
+        ),
+        Effect.either,
+      );
+
+      if (result._tag === "Left") {
+        chunksWithFailures++;
+        continue;
+      }
+
+      ingested += result.right.length;
 
       yield* Effect.logInfo("Ingested preprints chunk").pipe(
-        Effect.annotateLogs({ chunkSize: chunk.length, ingested: works.length }),
+        Effect.annotateLogs({ chunkSize: chunk.length, ingested: result.right.length }),
       );
     }
 
-    return { submitted: submitted.length, alreadyStored: alreadyStored.size, ingested };
+    return {
+      submitted: submitted.length,
+      alreadyStored: alreadyStored.size,
+      ingested,
+      chunksWithFailures,
+    };
   });
 
 export const createSurvey = Workflow.make({
@@ -174,6 +197,7 @@ export const ingestPreprints = Workflow.make({
     submitted: Schema.Number,
     alreadyStored: Schema.Number,
     ingested: Schema.Number,
+    chunksWithFailures: Schema.Number,
   }),
   error: UnableToIngestPreprints,
   idempotencyKey: ({ dois }) => {
@@ -191,11 +215,7 @@ export const ingestPreprintsLayer = ingestPreprints.toLayer(({ dois }) =>
       Effect.tapError((error) =>
         Effect.logError("Failed to ingest preprints").pipe(Effect.annotateLogs({ error })),
       ),
-      Effect.catchTag(
-        "UnableToGetWorks",
-        "UnableToAddPreprints",
-        (cause) => new UnableToIngestPreprints({ cause }),
-      ),
+      Effect.catchTag("UnableToAddPreprints", (cause) => new UnableToIngestPreprints({ cause })),
     ),
   }),
 );
