@@ -1,7 +1,8 @@
 import { Tokenizer } from "@huggingface/tokenizers";
-import { readFile, writeFile } from "node:fs/promises";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { truncateToModelLimit } from "./OpenRouter.js";
+import * as tokenizerJson from "../../../model/tokenizer.json";
+import * as tokenizerConfig from "../../../model/tokenizer_config.json";
 
 const oneTokenPerLetterVocab: Record<string, number> = {
   "[PAD]": 0,
@@ -87,16 +88,6 @@ const tokensChargedByEndpointFor = (text: string) =>
 const letters = (count: number) =>
   Array.from({ length: count }, (_, index) => "abcdefghijklmnopqrstuvwxyz"[index % 26]).join(" ");
 
-const loadCachedJson = async (file: string, url: string): Promise<object> => {
-  try {
-    return JSON.parse(await readFile(file, "utf-8"));
-  } catch {
-    const text = await fetch(url).then((response) => response.text());
-    await writeFile(file, text);
-    return JSON.parse(text);
-  }
-};
-
 describe("truncateToModelLimit", () => {
   it("returns the text unchanged, with its original casing and accents, when it fits", () => {
     const text = "Héllo World: a study of COVID-19 in Zürich.";
@@ -146,22 +137,7 @@ describe("truncateToModelLimit", () => {
 });
 
 describe("truncateToModelLimit", () => {
-  let tokenizer: Tokenizer;
-
-  beforeAll(async () => {
-    const [tokenizerJson, tokenizerConfig] = await Promise.all([
-      loadCachedJson(
-        "data/tokenizer.json",
-        "https://huggingface.co/thenlper/gte-large/resolve/main/tokenizer.json",
-      ),
-      loadCachedJson(
-        "data/tokenizer_config.json",
-        "https://huggingface.co/thenlper/gte-large/resolve/main/tokenizer_config.json",
-      ),
-    ]);
-
-    tokenizer = new Tokenizer(tokenizerJson, tokenizerConfig);
-  }, 30_000);
+  const tokenizer: Tokenizer = new Tokenizer(tokenizerJson, tokenizerConfig);
 
   it("does not regress in performance across repeated calls on long text", () => {
     const sentence = "The quick brown fox jumps over the lazy dog. ";
