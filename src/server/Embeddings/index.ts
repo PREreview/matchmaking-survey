@@ -34,6 +34,11 @@ export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
   );
 }
 
+type SurveyPick = {
+  doi: Doi;
+  distance: number;
+};
+
 export class Embeddings extends Context.Tag("Embeddings")<
   Embeddings,
   {
@@ -41,10 +46,7 @@ export class Embeddings extends Context.Tag("Embeddings")<
       input: Array.NonEmptyReadonlyArray<Paper>,
       inputOrcidId: string,
       languages: Array.NonEmptyReadonlyArray<LanguageCode>,
-    ) => Effect.Effect<
-      Array.NonEmptyReadonlyArray<{ doi: Doi; distance: number }>,
-      UnableToGetSurveyPapers
-    >;
+    ) => Effect.Effect<Array.NonEmptyReadonlyArray<SurveyPick>, UnableToGetSurveyPapers>;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
     existingDois: (input: ReadonlyArray<Doi>) => Effect.Effect<Set<Doi>, UnableToAddPreprints>;
   }
