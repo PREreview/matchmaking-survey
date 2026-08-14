@@ -142,8 +142,12 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
           cause: "no works with a title and abstract on ORCID profile",
         });
       }
-      const surveyPaperDois = yield* embeddings.getSurveyPapers(works, orcidId, languages);
-      const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPaperDois, Struct.get("doi")));
+      const { picks: surveyPicks, candidateCount } = yield* embeddings.getSurveyPapers(
+        works,
+        orcidId,
+        languages,
+      );
+      const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPicks, Struct.get("doi")));
 
       // Papers are shown to the scientist in a fully random order, independent of match quality.
       const shuffledSurveyPapers = yield* pipe(
@@ -154,22 +158,31 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
       const token = randomUUID();
       const batch = yield* Db.createBatch;
 
-      const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
+      const scientist = yield* Db.insertScientist(
+        batch.id,
+        orcidProfile.name,
+        orcidId,
+        token,
+        "orcid",
+        Array.map(works, Struct.get("doi")),
+        candidateCount,
+        languages,
+      );
 
       yield* Effect.all(
-        shuffledSurveyPapers.map((paper, i) =>
-          Db.insertPaper(
+        shuffledSurveyPapers.map((paper, i) => {
+          const pick = Array.findFirst(surveyPicks, ({ doi }) => paper.doi === doi);
+          return Db.insertPaper(
             scientist.id,
             paper.doi,
             paper.title,
             paper.abstract,
-            Option.match(
-              Array.findFirst(surveyPaperDois, ({ doi }) => paper.doi === doi),
-              { onNone: () => null, onSome: Struct.get("distance") },
-            ),
+            Option.match(pick, { onNone: () => null, onSome: Struct.get("distance") }),
             i,
-          ),
-        ),
+            Option.match(pick, { onNone: () => null, onSome: Struct.get("rank") }),
+            Option.match(pick, { onNone: () => null, onSome: Struct.get("window") }),
+          );
+        }),
       );
 
       return { batchId: batch.id, token };
@@ -262,9 +275,20 @@ export const importCsv = (csvText: string) =>
 
     for (const [orcid, papers] of byOrcid) {
       const token = randomUUID();
-      const scientist = yield* Db.insertScientist(batch.id, papers[0].name, orcid, token);
+      const scientist = yield* Db.insertScientist(
+        batch.id,
+        papers[0].name,
+        orcid,
+        token,
+        "csv",
+        null,
+        null,
+        null,
+      );
       yield* Effect.all(
-        papers.map((p, i) => Db.insertPaper(scientist.id, p.doi, p.title, p.abstract, null, i)),
+        papers.map((p, i) =>
+          Db.insertPaper(scientist.id, p.doi, p.title, p.abstract, null, i, null, null),
+        ),
         { concurrency: 1 },
       );
       entries.push({ orcid, token, paperCount: papers.length });

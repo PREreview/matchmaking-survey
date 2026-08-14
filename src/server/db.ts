@@ -6,6 +6,9 @@ import { ratingLabelFor } from "./ratingLabels.js";
 export type DbClient = SqlClient.SqlClient;
 
 export type Batch = { id: number; uploaded_at: string };
+
+export type SurveyCreatedFrom = "csv" | "orcid";
+
 export type Scientist = {
   id: number;
   batch_id: number;
@@ -13,7 +16,12 @@ export type Scientist = {
   orcid: string;
   token: string;
   submitted_at: string | null;
+  profile_works: string | null;
+  survey_created_from: SurveyCreatedFrom;
+  candidate_count: number | null;
+  languages: string | null;
 };
+
 export type Paper = {
   id: number;
   scientist_id: number;
@@ -21,7 +29,10 @@ export type Paper = {
   title: string;
   abstract: string;
   display_order: number;
+  rank: number | null;
+  window: string | null;
 };
+
 export type SurveyPaper = {
   id: number;
   title: string;
@@ -49,9 +60,15 @@ export type ExportRow = {
   name: string;
   orcid: string;
   token: string;
+  profile_works: string | null;
+  survey_created_from: SurveyCreatedFrom;
+  candidate_count: number | null;
+  languages: string | null;
   doi: string;
   title: string;
   abstract: string;
+  rank: number | null;
+  window: string | null;
   rating: number;
   comment: string | null;
   answered_at: string;
@@ -69,17 +86,33 @@ export const migrate = Effect.gen(function* () {
   `;
   yield* sql`
     CREATE TABLE IF NOT EXISTS scientists (
-      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      batch_id     INTEGER NOT NULL REFERENCES batches(id),
-      name         TEXT    NOT NULL DEFAULT '',
-      orcid        TEXT    NOT NULL,
-      token        TEXT    NOT NULL UNIQUE,
-      submitted_at TEXT
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_id             INTEGER NOT NULL REFERENCES batches(id),
+      name                 TEXT    NOT NULL DEFAULT '',
+      orcid                TEXT    NOT NULL,
+      token                TEXT    NOT NULL UNIQUE,
+      submitted_at         TEXT,
+      profile_works        TEXT,
+      survey_created_from  TEXT    NOT NULL DEFAULT 'csv',
+      candidate_count      INTEGER,
+      languages            TEXT
     )
   `;
   const scientistColumns = yield* sql<{ name: string }>`PRAGMA table_info(scientists)`;
   if (!scientistColumns.some((c) => c.name === "name")) {
     yield* sql`ALTER TABLE scientists ADD COLUMN name TEXT NOT NULL DEFAULT ''`;
+  }
+  if (!scientistColumns.some((c) => c.name === "profile_works")) {
+    yield* sql`ALTER TABLE scientists ADD COLUMN profile_works TEXT`;
+  }
+  if (!scientistColumns.some((c) => c.name === "survey_created_from")) {
+    yield* sql`ALTER TABLE scientists ADD COLUMN survey_created_from TEXT NOT NULL DEFAULT 'csv'`;
+  }
+  if (!scientistColumns.some((c) => c.name === "candidate_count")) {
+    yield* sql`ALTER TABLE scientists ADD COLUMN candidate_count INTEGER`;
+  }
+  if (!scientistColumns.some((c) => c.name === "languages")) {
+    yield* sql`ALTER TABLE scientists ADD COLUMN languages TEXT`;
   }
   yield* sql`
     CREATE TABLE IF NOT EXISTS papers (
@@ -90,12 +123,20 @@ export const migrate = Effect.gen(function* () {
       abstract      TEXT    NOT NULL,
       distance      REAL,
       display_order INTEGER NOT NULL DEFAULT 0,
+      rank          INTEGER,
+      window        TEXT,
       UNIQUE (scientist_id, doi)
     )
   `;
   const papersColumns = yield* sql<{ name: string }>`PRAGMA table_info(papers)`;
   if (!papersColumns.some((c) => c.name === "distance")) {
     yield* sql`ALTER TABLE papers ADD COLUMN distance REAL`;
+  }
+  if (!papersColumns.some((c) => c.name === "rank")) {
+    yield* sql`ALTER TABLE papers ADD COLUMN rank INTEGER`;
+  }
+  if (!papersColumns.some((c) => c.name === "window")) {
+    yield* sql`ALTER TABLE papers ADD COLUMN window TEXT`;
   }
   yield* sql`
     CREATE TABLE IF NOT EXISTS responses (
@@ -190,12 +231,28 @@ export const listBatches = Effect.gen(function* () {
   return yield* sql<Batch>`SELECT * FROM batches ORDER BY id DESC`;
 });
 
-export const insertScientist = (batchId: number, name: string, orcid: string, token: string) =>
+export const insertScientist = (
+  batchId: number,
+  name: string,
+  orcid: string,
+  token: string,
+  surveyCreatedFrom: SurveyCreatedFrom,
+  profileWorks: ReadonlyArray<string> | null,
+  candidateCount: number | null,
+  languages: ReadonlyArray<string> | null,
+) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql<Scientist>`
-      INSERT INTO scientists (batch_id, name, orcid, token)
-      VALUES (${batchId}, ${name}, ${orcid}, ${token})
+      INSERT INTO scientists (
+        batch_id, name, orcid, token, survey_created_from, profile_works, candidate_count, languages
+      )
+      VALUES (
+        ${batchId}, ${name}, ${orcid}, ${token}, ${surveyCreatedFrom},
+        ${profileWorks && JSON.stringify(profileWorks)},
+        ${candidateCount},
+        ${languages && JSON.stringify(languages)}
+      )
       RETURNING *
     `;
     return rows[0];
@@ -233,12 +290,16 @@ export const insertPaper = (
   abstract: string,
   distance: number | null,
   displayOrder: number,
+  rank: number | null,
+  window: string | null,
 ) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql<Paper>`
-      INSERT INTO papers (scientist_id, doi, title, abstract, distance, display_order)
-      VALUES (${scientistId}, ${doi}, ${title}, ${abstract}, ${distance}, ${displayOrder})
+      INSERT INTO papers (scientist_id, doi, title, abstract, distance, display_order, rank, window)
+      VALUES (
+        ${scientistId}, ${doi}, ${title}, ${abstract}, ${distance}, ${displayOrder}, ${rank}, ${window}
+      )
       RETURNING *
     `;
     return rows[0];
@@ -301,9 +362,15 @@ export const exportResponses = Effect.gen(function* () {
       s.name,
       s.orcid,
       s.token,
+      s.profile_works,
+      s.survey_created_from,
+      s.candidate_count,
+      s.languages,
       p.doi,
       p.title,
       p.abstract,
+      p.rank,
+      p.window,
       r.rating,
       r.comment,
       r.answered_at,

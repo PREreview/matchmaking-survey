@@ -15,12 +15,21 @@ const run = <A>(effect: Effect.Effect<A, unknown, Db.DbClient>) =>
 
 const seed = Db.createBatch.pipe(
   Effect.andThen((b) =>
-    Db.insertScientist(b.id, "Test Scientist", "0000-0002-1234-5678", "test-token"),
+    Db.insertScientist(
+      b.id,
+      "Test Scientist",
+      "0000-0002-1234-5678",
+      "test-token",
+      "orcid",
+      null,
+      null,
+      null,
+    ),
   ),
   Effect.andThen((s) =>
     Effect.all([
-      Db.insertPaper(s.id, "10.1/one", "Paper One", "Abstract one.", 0, 0),
-      Db.insertPaper(s.id, "10.1/two", "Paper Two", "Abstract two.", 0, 1),
+      Db.insertPaper(s.id, "10.1/one", "Paper One", "Abstract one.", 0, 0, null, null),
+      Db.insertPaper(s.id, "10.1/two", "Paper Two", "Abstract two.", 0, 1, null, null),
     ]).pipe(Effect.map((papers) => ({ scientist: s, papers }))),
   ),
 );

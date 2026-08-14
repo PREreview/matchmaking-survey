@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform";
-import { Array, Chunk, Config, Context, Effect, Layer, Option, pipe, Random, Struct } from "effect";
+import { Array, Config, Context, Effect, Layer, Option, pipe, Random, Struct } from "effect";
 import {
   UnableToGetSurveyPapers,
   UnableToAddPreprints,
@@ -37,6 +37,8 @@ export class EmbeddingsClient extends Context.Tag("EmbeddingsClient")<
 type SurveyPick = {
   doi: Doi;
   distance: number;
+  rank: number;
+  window: string;
 };
 
 export class Embeddings extends Context.Tag("Embeddings")<
@@ -46,11 +48,16 @@ export class Embeddings extends Context.Tag("Embeddings")<
       input: Array.NonEmptyReadonlyArray<Paper>,
       inputOrcidId: string,
       languages: Array.NonEmptyReadonlyArray<LanguageCode>,
-    ) => Effect.Effect<Array.NonEmptyReadonlyArray<SurveyPick>, UnableToGetSurveyPapers>;
+    ) => Effect.Effect<
+      { picks: Array.NonEmptyReadonlyArray<SurveyPick>; candidateCount: number },
+      UnableToGetSurveyPapers
+    >;
     addPreprints: (input: ReadonlyArray<Paper>) => Effect.Effect<void, UnableToAddPreprints>;
     existingDois: (input: ReadonlyArray<Doi>) => Effect.Effect<Set<Doi>, UnableToAddPreprints>;
   }
 >() {}
+
+const TOP_WINDOW: readonly [number, number] = [0, 7];
 
 const DEPTH_WINDOWS: ReadonlyArray<readonly [number, number]> = [
   [7, 17],
@@ -63,29 +70,51 @@ const DEPTH_WINDOWS: ReadonlyArray<readonly [number, number]> = [
   [2235, 5000],
 ];
 
-const sampleOne = <A>(items: ReadonlyArray<A>): Effect.Effect<Option.Option<A>> =>
-  pipe(Random.shuffle(items), Effect.map(Chunk.head));
+const windowLabel = ([start, end]: readonly [number, number]): string => `${start}-${end}`;
+
+const pickFromWindow = (
+  candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
+  [start, end]: readonly [number, number],
+): Effect.Effect<Option.Option<SurveyPick>> => {
+  const slice = candidates.slice(start, end);
+  if (!Array.isNonEmptyReadonlyArray(slice)) return Effect.succeed(Option.none());
+
+  return pipe(
+    Random.nextIntBetween(0, slice.length),
+    Effect.map((relativeIndex) =>
+      Option.some({
+        ...slice[relativeIndex],
+        rank: start + relativeIndex,
+        window: windowLabel([start, end]),
+      }),
+    ),
+  );
+};
 
 export const pickSurveyPapers = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
 ) {
-  const top7 = candidates.slice(0, 7);
+  const top = candidates.slice(...TOP_WINDOW).map((pick, rank) => ({
+    ...pick,
+    rank,
+    window: windowLabel(TOP_WINDOW),
+  }));
 
   const depthPicks = yield* pipe(
     DEPTH_WINDOWS,
-    Effect.forEach(([start, end]) => sampleOne(candidates.slice(start, end))),
+    Effect.forEach((window) => pickFromWindow(candidates, window)),
     Effect.map(Array.getSomes),
   );
 
   yield* Effect.logInfo("Selected survey papers").pipe(
     Effect.annotateLogs({
       candidates: candidates.length,
-      top: top7.length,
+      top: top.length,
       depth: depthPicks.length,
     }),
   );
 
-  return [...top7, ...depthPicks];
+  return { picks: [...top, ...depthPicks], candidateCount: candidates.length };
 });
 
 export const embeddingsLayer = Layer.effect(
@@ -102,7 +131,7 @@ export const embeddingsLayer = Layer.effect(
 
     return {
       getSurveyPapers: Effect.fnUntraced(function* (inputPapers, inputOrcidId, languages) {
-        const result = yield* pipe(
+        const { picks, candidateCount } = yield* pipe(
           inputPapers,
           getEmbeddingsGeneratingAsNeeded(apiKey, httpClient, sql, tokenizer),
           Effect.andThen(calcFloat32ArrayMean),
@@ -119,13 +148,13 @@ export const embeddingsLayer = Layer.effect(
           Effect.andThen(pickSurveyPapers),
         );
 
-        if (!Array.isNonEmptyReadonlyArray(result)) {
+        if (!Array.isNonEmptyReadonlyArray(picks)) {
           return yield* new UnableToGetSurveyPapers({
             cause: "no candidates found",
           });
         }
 
-        return result;
+        return { picks, candidateCount };
       }),
       addPreprints: createMissingEmbeddings(apiKey, httpClient, sql, tokenizer),
       existingDois: (dois) => findExistingDois(dois, sql),

@@ -34,7 +34,16 @@ describe("scientists", () => {
     const scientist = await run(
       Db.createBatch.pipe(
         Effect.andThen((b) =>
-          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-abc"),
+          Db.insertScientist(
+            b.id,
+            "Test Scientist",
+            "0000-0001-2345-6789",
+            "tok-abc",
+            "orcid",
+            null,
+            null,
+            null,
+          ),
         ),
       ),
     );
@@ -48,7 +57,16 @@ describe("scientists", () => {
     const found = await run(
       Db.createBatch.pipe(
         Effect.andThen((b) =>
-          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-xyz"),
+          Db.insertScientist(
+            b.id,
+            "Test Scientist",
+            "0000-0001-2345-6789",
+            "tok-xyz",
+            "orcid",
+            null,
+            null,
+            null,
+          ),
         ),
         Effect.andThen(() => Db.getScientistByToken("tok-xyz")),
       ),
@@ -66,7 +84,16 @@ describe("scientists", () => {
     const found = await run(
       Db.createBatch.pipe(
         Effect.andThen((b) =>
-          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-s"),
+          Db.insertScientist(
+            b.id,
+            "Test Scientist",
+            "0000-0001-2345-6789",
+            "tok-s",
+            "orcid",
+            null,
+            null,
+            null,
+          ),
         ),
         Effect.andThen((s) =>
           Db.markSubmitted(s.id).pipe(Effect.andThen(() => Db.getScientistByToken("tok-s"))),
@@ -81,8 +108,26 @@ describe("scientists", () => {
       Db.createBatch.pipe(
         Effect.andThen((b) =>
           Effect.all([
-            Db.insertScientist(b.id, "Test Scientist", "0000-0001-0000-0001", "tok-1"),
-            Db.insertScientist(b.id, "Test Scientist", "0000-0001-0000-0002", "tok-2"),
+            Db.insertScientist(
+              b.id,
+              "Test Scientist",
+              "0000-0001-0000-0001",
+              "tok-1",
+              "orcid",
+              null,
+              null,
+              null,
+            ),
+            Db.insertScientist(
+              b.id,
+              "Test Scientist",
+              "0000-0001-0000-0002",
+              "tok-2",
+              "orcid",
+              null,
+              null,
+              null,
+            ),
           ]).pipe(Effect.andThen(() => Db.listScientistsForBatch(b.id))),
         ),
       ),
@@ -96,10 +141,28 @@ describe("papers", () => {
     const paper = await run(
       Db.createBatch.pipe(
         Effect.andThen((b) =>
-          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-p"),
+          Db.insertScientist(
+            b.id,
+            "Test Scientist",
+            "0000-0001-2345-6789",
+            "tok-p",
+            "orcid",
+            null,
+            null,
+            null,
+          ),
         ),
         Effect.andThen((s) =>
-          Db.insertPaper(s.id, "10.1/great", "A Great Paper", "Abstract here.", null, 0),
+          Db.insertPaper(
+            s.id,
+            "10.1/great",
+            "A Great Paper",
+            "Abstract here.",
+            null,
+            0,
+            null,
+            null,
+          ),
         ),
       ),
     );
@@ -112,12 +175,21 @@ describe("papers", () => {
     const papers = await run(
       Db.createBatch.pipe(
         Effect.andThen((b) =>
-          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-pp"),
+          Db.insertScientist(
+            b.id,
+            "Test Scientist",
+            "0000-0001-2345-6789",
+            "tok-pp",
+            "orcid",
+            null,
+            null,
+            null,
+          ),
         ),
         Effect.andThen((s) =>
           Effect.all([
-            Db.insertPaper(s.id, "10.1/b", "Paper B", "Abstract B.", null, 1),
-            Db.insertPaper(s.id, "10.1/a", "Paper A", "Abstract A.", null, 0),
+            Db.insertPaper(s.id, "10.1/b", "Paper B", "Abstract B.", null, 1, null, null),
+            Db.insertPaper(s.id, "10.1/a", "Paper A", "Abstract A.", null, 0, null, null),
           ]).pipe(Effect.andThen(() => Db.listPapersForScientist(s.id))),
         ),
       ),
@@ -130,10 +202,19 @@ describe("papers", () => {
     const papers = await run(
       Db.createBatch.pipe(
         Effect.andThen((b) =>
-          Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-nodoi"),
+          Db.insertScientist(
+            b.id,
+            "Test Scientist",
+            "0000-0001-2345-6789",
+            "tok-nodoi",
+            "orcid",
+            null,
+            null,
+            null,
+          ),
         ),
         Effect.andThen((s) =>
-          Db.insertPaper(s.id, "10.1/secret", "Paper", "Abstract.", null, 0).pipe(
+          Db.insertPaper(s.id, "10.1/secret", "Paper", "Abstract.", null, 0, null, null).pipe(
             Effect.andThen(() => Db.listPapersForScientist(s.id)),
           ),
         ),
@@ -148,14 +229,32 @@ describe("papers", () => {
       Db.createBatch.pipe(
         Effect.andThen((b) =>
           Effect.all([
-            Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-share-a"),
-            Db.insertScientist(b.id, "Test Scientist", "0000-0002-1234-5678", "tok-share-b"),
+            Db.insertScientist(
+              b.id,
+              "Test Scientist",
+              "0000-0001-2345-6789",
+              "tok-share-a",
+              "orcid",
+              null,
+              null,
+              null,
+            ),
+            Db.insertScientist(
+              b.id,
+              "Test Scientist",
+              "0000-0002-1234-5678",
+              "tok-share-b",
+              "orcid",
+              null,
+              null,
+              null,
+            ),
           ]),
         ),
         Effect.andThen(([a, b]) =>
           Effect.all([
-            Db.insertPaper(a.id, "10.1/shared", "Shared Paper", "Abstract.", null, 0),
-            Db.insertPaper(b.id, "10.1/shared", "Shared Paper", "Abstract.", null, 0),
+            Db.insertPaper(a.id, "10.1/shared", "Shared Paper", "Abstract.", null, 0, null, null),
+            Db.insertPaper(b.id, "10.1/shared", "Shared Paper", "Abstract.", null, 0, null, null),
           ]).pipe(
             Effect.andThen(() =>
               Effect.all([Db.listPapersForScientist(a.id), Db.listPapersForScientist(b.id)]),
@@ -173,12 +272,21 @@ describe("papers", () => {
       run(
         Db.createBatch.pipe(
           Effect.andThen((b) =>
-            Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-dupe"),
+            Db.insertScientist(
+              b.id,
+              "Test Scientist",
+              "0000-0001-2345-6789",
+              "tok-dupe",
+              "orcid",
+              null,
+              null,
+              null,
+            ),
           ),
           Effect.andThen((s) =>
-            Db.insertPaper(s.id, "10.1/dupe", "Paper", "Abstract.", null, 0).pipe(
+            Db.insertPaper(s.id, "10.1/dupe", "Paper", "Abstract.", null, 0, null, null).pipe(
               Effect.andThen(() =>
-                Db.insertPaper(s.id, "10.1/dupe", "Paper Again", "Abstract.", null, 1),
+                Db.insertPaper(s.id, "10.1/dupe", "Paper Again", "Abstract.", null, 1, null, null),
               ),
             ),
           ),
@@ -200,6 +308,10 @@ describe("migrate", () => {
           "Test Scientist",
           "0000-0001-2345-6789",
           "tok-migrate",
+          "orcid",
+          null,
+          null,
+          null,
         );
         const paperA = yield* Db.insertPaper(
           scientist.id,
@@ -208,6 +320,8 @@ describe("migrate", () => {
           "Abstract.",
           null,
           0,
+          null,
+          null,
         );
 
         // Simulate a database created before rating 0 ("Not sure") was supported.
@@ -237,6 +351,8 @@ describe("migrate", () => {
           "Abstract.",
           null,
           1,
+          null,
+          null,
         );
         yield* Db.upsertResponse(scientist.id, paperB.id, 0);
         return yield* Db.listResponsesForScientist(scientist.id);
@@ -263,10 +379,19 @@ describe("responses", () => {
   ) =>
     Db.createBatch.pipe(
       Effect.andThen((b) =>
-        Db.insertScientist(b.id, "Test Scientist", "0000-0001-2345-6789", "tok-r"),
+        Db.insertScientist(
+          b.id,
+          "Test Scientist",
+          "0000-0001-2345-6789",
+          "tok-r",
+          "orcid",
+          null,
+          null,
+          null,
+        ),
       ),
       Effect.andThen((s) =>
-        Db.insertPaper(s.id, "10.1/response-paper", "Paper", "Abstract.", null, 0).pipe(
+        Db.insertPaper(s.id, "10.1/response-paper", "Paper", "Abstract.", null, 0, null, null).pipe(
           Effect.andThen((p) => f({ scientistId: s.id, paperId: p.id })),
         ),
       ),
