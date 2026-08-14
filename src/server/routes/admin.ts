@@ -1,5 +1,5 @@
 import { parse } from "csv-parse/sync";
-import { Data, Array, Effect, Schema, flow, Struct, pipe, Option } from "effect";
+import { Data, Array, Chunk, Effect, Schema, flow, Struct, pipe, Option, Random } from "effect";
 import { createHash, randomUUID } from "node:crypto";
 import * as Db from "../db.js";
 import { Embeddings } from "../Embeddings/index.js";
@@ -145,13 +145,19 @@ export const createSurveyLayer = createSurvey.toLayer(({ orcidId, languages }) =
       const surveyPaperDois = yield* embeddings.getSurveyPapers(works, orcidId, languages);
       const surveyPapers = yield* openAlex.getWorks(Array.map(surveyPaperDois, Struct.get("doi")));
 
+      // Papers are shown to the scientist in a fully random order, independent of match quality.
+      const shuffledSurveyPapers = yield* pipe(
+        Random.shuffle(surveyPapers),
+        Effect.map(Chunk.toReadonlyArray),
+      );
+
       const token = randomUUID();
       const batch = yield* Db.createBatch;
 
       const scientist = yield* Db.insertScientist(batch.id, orcidProfile.name, orcidId, token);
 
       yield* Effect.all(
-        surveyPapers.map((paper, i) =>
+        shuffledSurveyPapers.map((paper, i) =>
           Db.insertPaper(
             scientist.id,
             paper.doi,
