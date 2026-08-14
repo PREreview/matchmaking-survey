@@ -95,7 +95,7 @@ const surveyPagesRouter = HttpRouter.empty.pipe(
 
         return Exit.match(result.exit, {
           onFailure: () => htmlResponse(SurveyViews.renderFailedToCreateSurveyPage().__html, 500),
-          onSuccess: ({ token }) => HttpServerResponse.redirect(`/s/${token}`, { status: 303 }),
+          onSuccess: ({ token }) => htmlResponse(SurveyViews.renderSurveyReadyPage(token).__html),
         });
       }
       if (state.scientist.submitted_at) {

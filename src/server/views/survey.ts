@@ -33,6 +33,18 @@ export function renderStartPage() {
     title: "PREreview matchmaking survey",
     body: html`<main class="survey">
       <h1>PREreview matchmaking survey</h1>
+      <p>Thank you for joining our experiment. This will be quick.</p>
+
+      <p>
+        If you give us your ORCID iD and preferred language(s) we will show a bespoke survey that
+        you can fill in.
+      </p>
+
+      <p>
+        By filling in the survey you will help us improve how we match researchers to preprints
+        looking for review.
+      </p>
+
       <form method="post" action="/">
         <p><label for="orcid-id">What’s your ORCID iD?</label></p>
         <p><input id="orcid-id" type="text" name="orcid-id" required /></p>
@@ -68,9 +80,36 @@ export function renderCreatingSurveyPage() {
   return layout({
     title: "Survey being created — PREreview",
     body: html`<main class="survey">
-      <span class="loader"></span>
+      <h1>PREreview matchmaking survey</h1>
 
       <p>We’re creating your survey. This may take a moment.</p>
+
+      <span class="loader"></span>
+    </main>`,
+  });
+}
+
+export function renderSurveyReadyPage(token: string) {
+  return layout({
+    title: "Your survey is ready — PREreview",
+    body: html`<main class="survey">
+      <h1>PREreview matchmaking survey</h1>
+
+      <p>
+        We’ll now show you a set of preprint titles and abstracts. These are based on works that
+        appear on your public ORCID record.
+      </p>
+      <p>For each preprint, we’ll ask you how relevant it seems to your research area.</p>
+      <p>
+        We’re just looking for your initial response to the preprint title and abstract, so we’re
+        not expecting you to take any other action (including actually reading the preprint!).
+      </p>
+      <p>
+        We’re not expecting all, or even any, of these matches to be perfect. Honest reactions are
+        the most valuable thing to us, and will help us improve how matching works.
+      </p>
+      <p><strong>There are no wrong answers.</strong> We’re testing our work, not you!</p>
+      <p><a class="button-link" href="/s/${token}/1">Begin</a></p>
     </main>`,
   });
 }
