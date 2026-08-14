@@ -1,5 +1,5 @@
 import { HttpClient } from "@effect/platform";
-import { Array, Chunk, Config, Context, Effect, Layer, pipe, Random, Struct } from "effect";
+import { Array, Chunk, Config, Context, Effect, Layer, Option, pipe, Random, Struct } from "effect";
 import {
   UnableToGetSurveyPapers,
   UnableToAddPreprints,
@@ -50,32 +50,40 @@ export class Embeddings extends Context.Tag("Embeddings")<
   }
 >() {}
 
-const sample = <A>(items: ReadonlyArray<A>, k: number): Effect.Effect<Chunk.Chunk<A>> =>
-  pipe(Random.shuffle(items), Effect.andThen(Chunk.take(k)));
+const DEPTH_WINDOWS: ReadonlyArray<readonly [number, number]> = [
+  [7, 17],
+  [17, 39],
+  [39, 88],
+  [88, 199],
+  [199, 446],
+  [446, 999],
+  [999, 2235],
+  [2235, 5000],
+];
 
-export const getTopMidRandom = Effect.fnUntraced(function* (
+const sampleOne = <A>(items: ReadonlyArray<A>): Effect.Effect<Option.Option<A>> =>
+  pipe(Random.shuffle(items), Effect.map(Chunk.head));
+
+export const pickSurveyPapers = Effect.fnUntraced(function* (
   candidates: ReadonlyArray<{ doi: Doi; distance: number }>,
 ) {
   const top7 = candidates.slice(0, 7);
 
-  const mid4 = yield* sample(candidates.slice(20, 30), 4);
-
-  const topAndMidDois = new Set(Array.map([...top7, ...mid4], Struct.get("doi")));
-  const random4 = yield* sample(
-    candidates.slice(7).filter(({ doi }) => !topAndMidDois.has(doi)),
-    4,
+  const depthPicks = yield* pipe(
+    DEPTH_WINDOWS,
+    Effect.forEach(([start, end]) => sampleOne(candidates.slice(start, end))),
+    Effect.map(Array.getSomes),
   );
 
   yield* Effect.logInfo("Selected survey papers").pipe(
     Effect.annotateLogs({
       candidates: candidates.length,
       top: top7.length,
-      mid: mid4.length,
-      random: random4.length,
+      depth: depthPicks.length,
     }),
   );
 
-  return [...top7, ...mid4, ...random4];
+  return [...top7, ...depthPicks];
 });
 
 export const embeddingsLayer = Layer.effect(
@@ -98,7 +106,7 @@ export const embeddingsLayer = Layer.effect(
           Effect.andThen(calcFloat32ArrayMean),
           Effect.andThen(
             getRelatedDois(
-              500,
+              5000,
               sql,
               languages,
               inputOrcidId,
@@ -106,7 +114,7 @@ export const embeddingsLayer = Layer.effect(
             ),
           ),
           Effect.catchTag("UnableToQuery", ({ cause }) => new UnableToGetSurveyPapers({ cause })),
-          Effect.andThen(getTopMidRandom),
+          Effect.andThen(pickSurveyPapers),
         );
 
         if (!Array.isNonEmptyReadonlyArray(result)) {

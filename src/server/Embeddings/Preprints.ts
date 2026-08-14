@@ -81,6 +81,13 @@ export const ensurePreprintsTable = (
     CREATE INDEX IF NOT EXISTS preprints_embedding_idx ON preprints USING hnsw (embedding halfvec_cosine_ops)
   `;
 
+// Once `limit` is a meaningful fraction of the table, HNSW needs ef_search
+// raised close to `limit` to stay accurate, at which point it no longer beats
+// a sequential scan. This is expressed as a fraction rather than a fixed
+// limit because the table grows over time: the same absolute limit gets
+// cheaper relative to the index as the table gets bigger.
+const INDEX_SCAN_MAX_LIMIT_FRACTION = 0.02;
+
 export const getRelatedDois =
   (
     limit: number,
@@ -93,10 +100,21 @@ export const getRelatedDois =
     sql
       .withTransaction(
         Effect.gen(function* () {
-          // The HNSW index only searches an ef_search-sized candidate list per
-          // query; without raising it to at least `limit`, it silently returns
-          // fewer rows than requested once the planner uses the index.
-          yield* sql`SET LOCAL hnsw.ef_search = ${sql.literal(String(limit))}`;
+          // A statistics-table estimate, not a real COUNT(*) - cheaper
+          const [{ estimate }] = yield* sql<{ estimate: number }>`
+            SELECT reltuples::integer AS estimate FROM pg_class WHERE oid = 'preprints'::regclass
+          `;
+
+          if (estimate <= 0 || limit / estimate > INDEX_SCAN_MAX_LIMIT_FRACTION) {
+            // Forcing a sequential scan keeps the ranking exact and the cost
+            // predictable when the index wouldn't help anyway.
+            yield* sql`SET LOCAL enable_indexscan = off`;
+          } else {
+            // The HNSW index only searches an ef_search-sized candidate list
+            // per query; without raising it to at least `limit`, it silently
+            // returns fewer rows than requested once the planner uses the index.
+            yield* sql`SET LOCAL hnsw.ef_search = ${sql.literal(String(limit))}`;
+          }
 
           const encoded = Schema.encodeSync(PgVector)(mean);
           return yield* sql`
