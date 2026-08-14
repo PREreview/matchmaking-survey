@@ -46,16 +46,20 @@ export function renderStartPage() {
       </p>
 
       <form method="post" action="/">
-        <p><label for="orcid-id">What’s your ORCID iD?</label></p>
-        <p><input id="orcid-id" type="text" name="orcid-id" required /></p>
+        <div class="card">
+          <label class="field-label" for="orcid-id"
+            >What’s your ORCID iD? <span class="required" aria-hidden="true">*</span></label
+          >
+          <input id="orcid-id" type="text" name="orcid-id" required />
+        </div>
 
-        <fieldset role="group">
+        <fieldset class="card" role="group">
           <legend>What languages can the title and abstracts of the papers we find be in?</legend>
 
           ${Array.map(
             languages,
             (language) => html`
-              <div class="language-option">
+              <div class="checkbox-option">
                 <input
                   type="checkbox"
                   id="language-${language}"
@@ -70,7 +74,9 @@ export function renderStartPage() {
           )}
         </fieldset>
 
-        <p><button class="button" type="submit">Continue</button></p>
+        <div class="actions">
+          <button class="button" type="submit">Continue</button>
+        </div>
       </form>
     </main>`,
   });
@@ -257,7 +263,7 @@ export function renderPaperPage({
           </div>
         </fieldset>
         <div class="card">
-          <label class="comment-label" for="comment"
+          <label class="field-label" for="comment"
             >Is there anything you'd like to add to your response? (optional)</label
           >
           <textarea id="comment" name="comment" rows="4" cols="60">${comment ?? ""}</textarea>

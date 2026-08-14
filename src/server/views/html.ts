@@ -246,18 +246,91 @@ const BASE_CSS = `
     border-radius: 8px;
     padding: 0.5rem 1.25rem 0.5rem 3rem;
   }
-  .survey .comment-label {
+  .survey .field-label {
     display: block;
     font-weight: 700;
     margin-bottom: 0.75rem;
   }
-  .survey textarea {
+  .survey textarea,
+  .survey input[type="text"] {
     width: 100%;
     border: 1px solid #ced4da;
     border-radius: 6px;
     padding: 0.75rem;
     font: inherit;
+  }
+  .survey textarea {
     resize: vertical;
+  }
+  .survey .checkbox-option {
+    position: relative;
+    margin-bottom: 0.5rem;
+  }
+  .survey .checkbox-option:last-child {
+    margin-bottom: 0;
+  }
+  .survey .checkbox-option input {
+    position: absolute;
+    z-index: 1;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+  .survey .checkbox-option label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.65rem 1rem 0.65rem 3.35rem;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-weight: 500;
+    color: #343a40;
+    background: #fff;
+    cursor: pointer;
+  }
+  .survey .checkbox-option label::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    box-sizing: border-box;
+    border: 2px solid #8a8f96;
+    border-radius: 4px;
+    background: #fff;
+    transform: translateY(-50%);
+  }
+  .survey .checkbox-option label::after {
+    content: "";
+    position: absolute;
+    left: 1.75rem;
+    top: 50%;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+    background: #0d9488;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.1s ease;
+  }
+  .survey .checkbox-option input:hover + label::before {
+    border-color: #0d9488;
+  }
+  .survey .checkbox-option input:checked + label {
+    border-color: #0d9488;
+    background: #f0faf9;
+  }
+  .survey .checkbox-option input:checked + label::before {
+    border-color: #0d9488;
+  }
+  .survey .checkbox-option input:checked + label::after {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .survey .checkbox-option input:focus-visible + label::before {
+    outline: 3px solid #0d6efd;
+    outline-offset: 2px;
   }
   .survey .actions {
     display: flex;
